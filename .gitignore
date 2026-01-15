@@ -1,0 +1,10 @@
+﻿################################################################################
+# この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
+################################################################################
+
+/.vs
+/SyncFolderPair/bin
+/SyncFolderPair/obj
+/test
+/SyncFolderPair/SyncFolderPair.csproj.user
+/SyncFolderPair/Properties/PublishProfiles/FolderProfile.pubxml.user

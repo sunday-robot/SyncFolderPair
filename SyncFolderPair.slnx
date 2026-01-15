@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../Win32/Win32Api.csproj" />
+  <Project Path="SyncFolderPair/SyncFolderPair.csproj" />
+</Solution>

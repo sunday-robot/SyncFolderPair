@@ -1,0 +1,48 @@
+{
+  "profiles": {
+    "list": {
+      "commandName": "Project",
+      "commandLineArgs": "list\r\n"
+    },
+    "add_real": {
+      "commandName": "Project",
+      "commandLineArgs": "add real_pair \\\\Tsukumo\\wd80eazz\\movie \\\\TSUKUMO\\ws80eazz_2\\movie"
+    },
+    "union_preview_real": {
+      "commandName": "Project",
+      "commandLineArgs": "union_preview real_pair"
+    },
+    "diff_80_movie": {
+      "commandName": "Project",
+      "commandLineArgs": "diff  \\\\Tsukumo\\wd80eazz\\movie \\\\TSUKUMO\\ws80eazz_2\\movie"
+    },
+    "diff_60_movie": {
+      "commandName": "Project",
+      "commandLineArgs": "diff  \\\\Tsukumo\\wd60ezat-rt\\movie \\\\Tsukumo\\wd60ezat-rt_2\\movie"
+    },
+    "print_usage": {
+      "commandName": "Project"
+    },
+    "add test pair": {
+      "commandName": "Project",
+      "commandLineArgs": "add test_pair test\\left test\\right",
+      "workingDirectory": ".."
+    },
+    "remove test pair": {
+      "commandName": "Project",
+      "commandLineArgs": "remove test_pair\r\n"
+    },
+    "align test pair check": {
+      "commandName": "Project",
+      "commandLineArgs": "align test_pair check"
+    },
+    "align test pair": {
+      "commandName": "Project",
+      "commandLineArgs": "align test_pair"
+    },
+    "align test pair force": {
+      "commandName": "Project",
+      "commandLineArgs": "align test_pair force\r\n"
+    }
+  }
+}
