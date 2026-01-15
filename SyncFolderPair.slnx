@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/ソリューション項目/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="../Win32/Win32Api.csproj" />
   <Project Path="SyncFolderPair/SyncFolderPair.csproj" />
 </Solution>
