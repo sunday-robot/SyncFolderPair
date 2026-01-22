@@ -1,67 +1,45 @@
 ﻿using SyncFolderPair.Commands;
 
-namespace SyncFolderPair
+namespace SyncFolderPair;
+
+class Program
 {
-    class Program
+    static readonly List<AbstractCommand> _commands = [
+        new AddCommand(),
+        new AddIgnoreCommand(),
+        new RemoveCommand(),
+        new ListCommand(),
+        new AlignCommand(),
+        new SyncCommand(),
+        new DiffCommand(),
+        new InitCommand(),
+    ];
+
+    static int Main(string[] args)
     {
-        static int Main(string[] args)
+        try
         {
-            try
-            {
-                if (args.Length < 1)
-                    throw new ArgumentException("Specify command.");
-                var command = args[0];
-                var commandArgs = args.AsSpan(1);
+            if (args.Length < 1)
+                throw new ArgumentException("Specify command.");
 
-                switch (command)
-                {
-                    case "add":
-                        AddCommand.Run(commandArgs);
-                        break;
-                    case "remove":
-                        if (args.Length != 2)
-                            throw new ArgumentException("Parameter count error.");
-                        RemoveCommand.Run(args[1]);
-                        break;
-                    case "list":
-                        if (args.Length != 1)
-                            throw new ArgumentException("Parameter count error.");
-                        ListCommand.Run();
-                        break;
-                    case "align":
-                        AlignCommand.Run(commandArgs);
-                        break;
-                    case "sync":
-                        if (args.Length != 2)
-                            throw new ArgumentException("Parameter count error.");
-                        SyncCommand.Run(args[1]);
-                        break;
-                    case "diff":
-                        DiffCommand.Run(commandArgs);
-                        break;
-                    default:
-                        throw new ArgumentException("Wrong command.");
-                }
-                return 0;
-            }
-            catch (ArgumentException e)
+            var command = _commands.Find(c => c.Name == args[0]) ?? throw new ArgumentException($"Wrong command. [${args[0]}]");
+            return command.Run(args.AsSpan(1));
+        }
+        catch (ArgumentException e)
+        {
+            Console.Error.WriteLine(e.Message);
+            Console.Error.WriteLine();
+            Console.Error.WriteLine("Usage:");
+            foreach (var command in _commands)
             {
-                Console.Error.WriteLine(e.Message);
-
-                Console.Error.WriteLine("Usage:");
-                Console.Error.WriteLine("  SyncFolderPair add <pair name> <left folder> <right folder>");
-                Console.Error.WriteLine("  SyncFolderPair remove <pair name>");
-                Console.Error.WriteLine("  SyncFolderPair list");
-                Console.Error.WriteLine("  SyncFolderPair align <pair name> [\"force\" or \"check\"]");
-                Console.Error.WriteLine("  SyncFolderPair sync <pair name>");
-                Console.Error.WriteLine("  SyncFolderPair diff <left folder> <right folder>");
-                return 1;
+                Console.Error.WriteLine($"  SyncFolderPair {command.Name} {command.Usage}");
             }
-            catch (Exception e)
-            {
-                Console.Error.WriteLine("Error: " + e.Message);
-                return 1;
-            }
+            return 1;
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("Error: " + e.Message);
+            return 1;
         }
     }
 }

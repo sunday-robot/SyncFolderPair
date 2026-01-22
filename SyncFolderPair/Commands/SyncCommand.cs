@@ -1,19 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace SyncFolderPair.Commands;
 
-namespace SyncFolderPair.Commands
+/// <summary>
+/// フォルダペアのフォルダ内容を同期させる
+/// </summary>
+public sealed class SyncCommand : AbstractCommand
 {
-    /// <summary>
-    /// フォルダペアのフォルダ内容を同期させる
-    /// </summary>
-    public static class SyncCommand
+    public override string Name => "sync";
+    public override string Usage => "<pair name>";
+
+    public override int Run(Span<string> args)
     {
-        public static void Run(string pairName)
-        {
-            // TODO: var pair = PairLoader.Load(pairName);
-            // TODO: SyncEngine.Run(pair);
-            Console.WriteLine($"[sync] pair={pairName}");
-        }
+        if (args.Length != 1)
+            throw new ArgumentException("Parameter count error.");
+
+        // TODO: var pair = PairLoader.Load(pairName);
+        // TODO: SyncEngine.Run(pair);
+        Console.WriteLine($"[sync] pair={args[0]}");
+
+        return 0;
     }
 }

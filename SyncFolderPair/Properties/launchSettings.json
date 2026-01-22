@@ -43,6 +43,18 @@
     "align test pair force": {
       "commandName": "Project",
       "commandLineArgs": "align test_pair force\r\n"
+    },
+    "add_ignore_folder": {
+      "commandName": "Project",
+      "commandLineArgs": "add_ignore test_pair 1_ignore"
+    },
+    "diff_test_dirs": {
+      "commandName": "Project",
+      "commandLineArgs": "diff ..\\..\\..\\..\\test\\left ..\\..\\..\\..\\test\\right"
+    },
+    "init_test_pair": {
+      "commandName": "Project",
+      "commandLineArgs": "init test_pair"
     }
   }
 }

@@ -1,24 +1,22 @@
 ﻿using SyncFolderPair.Types;
 using System.Text;
 
-namespace SyncFolderPair.Services
+namespace SyncFolderPair.Services;
+
+public static class SyncEntrySaver
 {
-    public static class SyncEntrySaver
+    public static void Save(string filePath, IEnumerable<SyncEntry> entries)
     {
-        public static void Save(string filePath, IEnumerable<SyncEntry> entries)
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+        using var writer = new StreamWriter(filePath, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        foreach (var entry in entries)
         {
-            using var writer = new StreamWriter(filePath, false, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-
-            foreach (var entry in entries)
-            {
-                writer.WriteLine(ToTsv(entry));
-            }
+            writer.WriteLine(ToTsv(entry));
         }
+    }
 
-        private static string ToTsv(SyncEntry entry)
-        {
-            var escaped = entry.RelativePath.Replace("\t", "\\t");
-            return $"{escaped}\t{entry.LastModifiedUtc:o}\t{entry.Size}";
-        }
+    static string ToTsv(SyncEntry entry)
+    {
+        return $"{entry.RelativePath}\t{entry.LastModifiedUtc:o}\t{entry.Size}";
     }
 }

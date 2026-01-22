@@ -1,15 +1,22 @@
 ﻿using SyncFolderPair.Models;
 
-namespace SyncFolderPair.Commands
+namespace SyncFolderPair.Commands;
+
+/// <summary>
+/// 設定ファイルから、フォルダペアを削除する
+/// </summary>
+public sealed class RemoveCommand : AbstractCommand
 {
-    /// <summary>
-    /// 設定ファイルから、フォルダペアを削除する
-    /// </summary>
-    public static class RemoveCommand
+    public override string Name => "remove";
+    public override string Usage => "<pair name>";
+
+    public override int Run(Span<string> args)
     {
-        public static void Run(string pairName)
-        {
-            DirectoryPairs.Remove(pairName);
-        }
+        if (args.Length != 1)
+            throw new ArgumentException("Parameter count error.");
+
+        DirectoryPairs.Remove(args[0]);
+
+        return 0;
     }
 }

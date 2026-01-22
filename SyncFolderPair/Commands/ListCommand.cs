@@ -1,22 +1,33 @@
 ﻿using SyncFolderPair.Models;
 
-namespace SyncFolderPair.Commands
+namespace SyncFolderPair.Commands;
+
+/// <summary>
+/// 設定ファイルに設定されているフォルダペアのリストを出力する
+/// </summary>
+public sealed class ListCommand : AbstractCommand
 {
-    /// <summary>
-    /// 設定ファイルに設定されているフォルダぺのリストを出力する
-    /// </summary>
-    public static class ListCommand
+    public override string Name => "list";
+    public override string Usage => "";
+    
+    public override int Run(Span<string> args)
     {
-        public static void Run()
+        if (args.Length != 0)
+            throw new ArgumentException("Parameter count error.");
+
+        DirectoryPairs.ForEach((name, left, right, ignoreDirectorySet) =>
         {
-            var pairs = DirectoryPairs.Get();
-            foreach (var p in pairs)
+            Console.WriteLine($"{name}:");
+            Console.WriteLine($"  left Directory:  {left}");
+            Console.WriteLine($"  right Directory: {right}");
+            Console.WriteLine($"  ignore directory[{ignoreDirectorySet.Count}]:");
+            foreach (var path in ignoreDirectorySet)
             {
-                Console.WriteLine($"{p.Name}:");
-                Console.WriteLine($"  {p.LeftDirectory}");
-                Console.WriteLine($"  {p.RightDirectory}");
-                Console.WriteLine();
+                Console.WriteLine($"    {path}");
             }
-        }
+            Console.WriteLine();
+        });
+
+        return 0;
     }
 }
