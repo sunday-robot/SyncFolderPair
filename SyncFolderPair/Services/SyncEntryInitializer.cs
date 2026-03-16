@@ -6,13 +6,6 @@ namespace SyncFolderPair.Services;
 
 public static class SyncEntryInitializer
 {
-    /// <summary>
-    /// フォルダペアの初期化を行う。<br/>
-    /// 具体的には管理ファイルの作成で、この管理ファイルには、フォルダペア内のすべてのファイルの相対パス、タイムスタンプ、サイズを保持するものである。
-    /// 
-    /// 二つのフォルダ間に差異がないことを前提としており、差異がある場合は、その旨をユーザーに報告し、管理ファイルの作成は行わない。
-    /// </summary>
-    /// <param name="pairName"></param>
     public static SyncEntries Initialize(string leftDirectory, string rightDirectory, IgnoreEntries ignoreEntries)
     {
         var syncEntries = CreateSyncEntries(leftDirectory, rightDirectory, ignoreEntries)

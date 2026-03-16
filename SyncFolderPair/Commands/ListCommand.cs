@@ -19,8 +19,8 @@ public sealed class ListCommand : AbstractCommand
         AppService.ForEachPair((name, left, right, ignoreDirectorySet) =>
         {
             Console.WriteLine($"{name}:");
-            Console.WriteLine($"  left Directory:  {left}");
-            Console.WriteLine($"  right Directory: {right}");
+            Console.WriteLine($"  left  : {left}");
+            Console.WriteLine($"  right : {right}");
             Console.WriteLine($"  ignore directory:");
             PrintIgnoreEntries(ignoreDirectorySet, "    ");
             Console.WriteLine();

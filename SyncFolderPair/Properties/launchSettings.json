@@ -51,6 +51,14 @@
     "init_test_pair": {
       "commandName": "Project",
       "commandLineArgs": "init test_pair"
+    },
+    "align wd30movie check": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd30movie check"
+    },
+    "init ws30movie": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd30movie"
     }
   }
 }
