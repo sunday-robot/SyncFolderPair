@@ -8,10 +8,6 @@
       "commandName": "Project",
       "commandLineArgs": "add real_pair \\\\Tsukumo\\wd80eazz\\movie \\\\TSUKUMO\\ws80eazz_2\\movie"
     },
-    "union_preview_real": {
-      "commandName": "Project",
-      "commandLineArgs": "union_preview real_pair"
-    },
     "diff_80_movie": {
       "commandName": "Project",
       "commandLineArgs": "diff  \\\\Tsukumo\\wd80eazz\\movie \\\\TSUKUMO\\ws80eazz_2\\movie"
@@ -46,7 +42,7 @@
     },
     "add_ignore_folder": {
       "commandName": "Project",
-      "commandLineArgs": "add_ignore test_pair 1_ignore"
+      "commandLineArgs": "add_ignore test_pair 1_ignore 1/ignore"
     },
     "diff_test_dirs": {
       "commandName": "Project",

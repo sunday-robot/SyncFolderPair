@@ -15,7 +15,7 @@ public sealed class DiffCommand : AbstractCommand
         if (args.Length != 2)
             throw new ArgumentException("Parameter count error.");
 
-        DirectoryDifferencePrinter.Check(args[0], args[1]);
+        AppService.PrintDirectoryDifferences(args[0], args[1]);
 
         return 0;
     }

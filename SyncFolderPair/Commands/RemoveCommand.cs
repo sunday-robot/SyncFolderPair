@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Models;
+﻿using SyncFolderPair.Services;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,7 +15,7 @@ public sealed class RemoveCommand : AbstractCommand
         if (args.Length != 1)
             throw new ArgumentException("Parameter count error.");
 
-        DirectoryPairs.Remove(args[0]);
+        AppService.RemoveDirectoryPair(args[0]);
 
         return 0;
     }

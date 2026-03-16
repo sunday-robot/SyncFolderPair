@@ -7,6 +7,8 @@ namespace SyncFolderPair.Utils;
 /// </summary>
 public class NaturalStringComparer : IComparer<string?>
 {
+    public static readonly NaturalStringComparer Instance = new();
+
     public int Compare(string? x, string? y)
         => Win32.StrCmpLogicalW(x!, y!);
 }

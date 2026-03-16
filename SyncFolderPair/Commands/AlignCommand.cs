@@ -1,16 +1,16 @@
-﻿using SyncFolderPair.Models;
-using SyncFolderPair.Services;
+﻿using SyncFolderPair.Services;
 
 namespace SyncFolderPair.Commands;
 
 /// <summary>
 /// 二つのフォルダの同一にする。<br/>
 /// 
-/// オプションが指定されていない場合、以下の処理を行う。<br/>
+/// オプションは二つあるが、指定されていない場合、以下の処理を行う。<br/>
 /// (1) 片方のフォルダにしかないファイルの場合、もう片方のフォルダににコピーし、その旨をコンソールに出力する。<br/>
 /// (2) 両方のフォルダに存在し、タイムスタンプもサイズも同じ場合、ファイル操作はせず、コンソールへの出力も行わない。<br/>
 /// (3) 両方のフォルダに存在し、タイムスタンプが異なる場合、ファイル操作はせず、その旨をコンソールに出力する。<br/>
 /// (4) 両方のフォルダに存在し、タイムスタンプが同じなのにサイズが異なる場合、ファイル操作はせず、異常な状態である旨をコンソールに出力する。<br/>
+/// (5) 両方のフォルダに存在するのだが、片方がディレクトリ、もう片方がファイルの場合、ファイル操作はせず、その旨をコンソールに出力する。<br/>
 /// 
 /// "force"オプションが指定されている場合、上記の(3)のケースの処理が異なる。<br/>
 /// 古いファイルはゴミ箱に移動させ、新しいファイルをコピーし、その旨をコンソールに出力する。<br/>
@@ -27,22 +27,21 @@ public sealed class AlignCommand : AbstractCommand
         if (args.Length == 0)
             throw new ArgumentException("Specify pair name.");
 
-
         switch (args.Length)
         {
             case 1:
                 // 片方のディレクトリにだけあるファイルをもう片方にコピーするだけ
-                DirectoryAligner.Align(args[0]);
+                AppService.AlignDirectoryPair(args[0]);
                 break;
             case 2:
                 switch (args[1])
                 {
                     case "force":
                         // 両方のディレクトリにあるファイルも、更新日時が新しい方で上書きコピーする
-                        DirectoryAligner.ForceAlign(args[0]);
+                        AppService.ForceAlignDirectoryPair(args[0]);
                         break;
                     case "check":
-                        DirectoryDifferencePrinter.Check(args[0]);
+                        AppService.CheckAlignDirectoryPair(args[0]);
                         break;
                     default:
                         throw new ArgumentException($"Wrong option [{args[1]}].");

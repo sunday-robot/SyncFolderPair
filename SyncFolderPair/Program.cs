@@ -6,13 +6,13 @@ class Program
 {
     static readonly List<AbstractCommand> _commands = [
         new AddCommand(),
-        new AddIgnoreCommand(),
         new RemoveCommand(),
         new ListCommand(),
+        new AddIgnoreCommand(),
         new AlignCommand(),
+        new InitCommand(),
         new SyncCommand(),
         new DiffCommand(),
-        new InitCommand(),
     ];
 
     static int Main(string[] args)
@@ -22,7 +22,7 @@ class Program
             if (args.Length < 1)
                 throw new ArgumentException("Specify command.");
 
-            var command = _commands.Find(c => c.Name == args[0]) ?? throw new ArgumentException($"Wrong command. [${args[0]}]");
+            var command = _commands.Find(c => c.Name == args[0]) ?? throw new ArgumentException($"Wrong command. \"{args[0]}\"");
             return command.Run(args.AsSpan(1));
         }
         catch (ArgumentException e)

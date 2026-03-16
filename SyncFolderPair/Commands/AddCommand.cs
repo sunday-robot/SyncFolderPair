@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Models;
+﻿using SyncFolderPair.Services;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,7 +15,7 @@ public sealed class AddCommand : AbstractCommand
         if (args.Length != 3)
             throw new ArgumentException("Parameter count error.");
 
-        DirectoryPairs.Add(args[0], args[1], args[2]);
+        AppService.AddDirectoryPair(args[0], args[1], args[2]);
 
         return 0;
     }

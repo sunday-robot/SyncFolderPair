@@ -1,10 +1,9 @@
-﻿namespace SyncFolderPair.Commands
-{
-    public abstract class AbstractCommand
-    {
-        abstract public string Name { get; }
-        abstract public string Usage { get; }
+﻿namespace SyncFolderPair.Commands;
 
-        abstract public int Run(Span<string> args);
-    }
+public abstract class AbstractCommand
+{
+    abstract public string Name { get; }
+    abstract public string Usage { get; }
+
+    abstract public int Run(Span<string> args);
 }
