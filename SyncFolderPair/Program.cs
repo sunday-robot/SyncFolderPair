@@ -6,7 +6,7 @@ class Program
 {
     static readonly List<AbstractCommand> _commands = [
         new AddCommand(),
-        new RemoveCommand(),
+        new DeleteCommand(),
         new ListCommand(),
         new AddIgnoreCommand(),
         new AlignCommand(),

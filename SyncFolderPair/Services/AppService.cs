@@ -36,7 +36,7 @@ public static class AppService
         DirectoryPairStorage.Set(pairName, leftDirectory, rightDirectory);
     }
 
-    public static void RemoveDirectoryPair(string pairName)
+    public static void DeleteDirectoryPair(string pairName)
     {
         DirectoryPairStorage.Delete(pairName);
         SyncEntriesStorage.Delete(pairName);
@@ -89,8 +89,16 @@ public static class AppService
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
+    internal static void CheckSynchronize(string pairName)
+    {
+        var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
+        var syncEntries = SyncEntriesStorage.Get(pairName);
+        DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
+    }
+
     public static void PrintDirectoryDifferences(string leftDirectory, string rightDirectory)
     {
         DirectoryDifferencePrinter.Print(leftDirectory, rightDirectory);
     }
+
 }

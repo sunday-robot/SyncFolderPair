@@ -45,7 +45,7 @@ public static class DirectoryPairStorage
         {
             new(name, leftDirectory, rightDirectory)
         };
-        JsonSaver.Save(GetFilePath(), pairs);
+        JsonSaver.Save(GetFilePath(), newPairs);
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public static class DirectoryPairStorage
         if (newPairs.Count == pairs.Count)
             throw new Exception($"Pair not found: {name}");
 
-        JsonSaver.Save(GetFilePath(), pairs);
+        JsonSaver.Save(GetFilePath(), newPairs);
     }
 
     /// <summary>

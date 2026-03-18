@@ -5,9 +5,9 @@ namespace SyncFolderPair.Commands;
 /// <summary>
 /// 設定ファイルから、フォルダペアを削除する
 /// </summary>
-public sealed class RemoveCommand : AbstractCommand
+public sealed class DeleteCommand : AbstractCommand
 {
-    public override string Name => "remove";
+    public override string Name => "delete";
     public override string Usage => "<pair name>";
 
     public override int Run(Span<string> args)
@@ -15,7 +15,7 @@ public sealed class RemoveCommand : AbstractCommand
         if (args.Length != 1)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.RemoveDirectoryPair(args[0]);
+        AppService.DeleteDirectoryPair(args[0]);
 
         return 0;
     }

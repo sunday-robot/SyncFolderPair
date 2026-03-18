@@ -10,14 +10,25 @@ namespace SyncFolderPair.Commands;
 public sealed class SyncCommand : AbstractCommand
 {
     public override string Name => "sync";
-    public override string Usage => "<pair name>";
+    public override string Usage => "<pair name> [check]";
 
     public override int Run(Span<string> args)
     {
-        if (args.Length != 1)
-            throw new ArgumentException("Parameter count error.");
-
-        AppService.Synchronize(args[0]);
+        switch (args.Length)
+        {
+            case 1:
+                AppService.Synchronize(args[0]);
+                break;
+            case 2:
+                if (args[1] != "check")
+                {
+                    throw new ArgumentException("Invalid parameter.");
+                }
+                AppService.CheckSynchronize(args[0]);
+                break;
+            default:
+                throw new ArgumentException("Parameter count error.");
+        }
 
         return 0;
     }

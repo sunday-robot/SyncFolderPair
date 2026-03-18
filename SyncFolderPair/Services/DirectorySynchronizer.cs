@@ -2,38 +2,86 @@
 using SyncFolderPair.Utils;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using static Win32Api.Win32;
+using Win32Api;
 
 namespace SyncFolderPair.Services;
 
 public static class DirectorySynchronizer
 {
+    static readonly SyncEntriesLeaf _dummySyncEntriesLeaf = new(DateTime.MinValue, 0);
+
+    /// <summary>
+    /// 二つのディレクトリの更新内容を互いに反映する。
+    /// </summary>
+    /// <param name="leftDirectoryPath"></param>
+    /// <param name="rightDirectoryPath"></param>
+    /// <param name="ignoreEntries">無視するエントリー</param>
+    /// <param name="oldSyncEntries">前回の更新結果</param>
+    /// <returns>今回の更新結果</returns>
     public static SyncEntries Synchronize(
         string leftDirectoryPath,
         string rightDirectoryPath,
         IgnoreEntries ignoreEntries,
         SyncEntries oldSyncEntries)
     {
+        return SynchronizeCore(
+            CreateDirectory, DeleteEmptyDirectory, CopyFile, ReplaceFile, DeleteFile,
+            leftDirectoryPath, rightDirectoryPath, "", ignoreEntries, oldSyncEntries);
+    }
+
+    /// <summary>
+    /// Synchronizeのプレビューをする。
+    /// </summary>
+    /// <param name="leftDirectoryPath"></param>
+    /// <param name="rightDirectoryPath"></param>
+    /// <param name="ignoreEntries">無視するエントリー</param>
+    /// <param name="oldSyncEntries">前回の更新結果</param>
+    public static void CheckSynchronize(
+        string leftDirectoryPath,
+        string rightDirectoryPath,
+        IgnoreEntries ignoreEntries,
+        SyncEntries oldSyncEntries)
+    {
+        var dummySyncEntries = new SyncEntries();
+        SynchronizeCore(
+            PrintCreateDirectory, PrintDeleteEmptyDirectory, PrintCopyFile, PrintReplaceFile, PrintDeleteFile,
+            leftDirectoryPath, rightDirectoryPath, "", ignoreEntries, oldSyncEntries);
+    }
+
+    static SyncEntries SynchronizeCore(
+        Action<bool, string, string> createDirectory,
+        Action<bool, string, string> deleteEmptyDirectory,
+        Func<bool, string, string, string, SyncEntriesNode> copyFile,
+        Func<bool, string, string, string, SyncEntriesNode> replaceFile,
+        Action<bool, string, string> deleteFile,
+        string leftBase,
+        string rightBase,
+        string path,
+        IgnoreEntries ignoreEntries,
+        SyncEntries oldSyncEntries)
+    {
+        var left = Path.Combine(leftBase, path);
+        var right = Path.Combine(rightBase, path);
         var newSyncEntries = new SyncEntries();
-        foreach (var e in EntryEnumerator.Enumerate(leftDirectoryPath, rightDirectoryPath, ignoreEntries))
+        foreach (var e in EntryEnumerator.Enumerate(left, right, ignoreEntries))
         {
             var name = e.Item1;
             var oldEntry = oldSyncEntries.Nodes[name];
 
-            SyncEntriesNode? entry;
             switch (e.Item2)
             {
                 case PairEnumerator.Existance.OnlyLeft:
                     // 左にしかない
-                    entry = SynchronizeSingleSideEntry(leftDirectoryPath, rightDirectoryPath, name, ignoreEntries, oldEntry);
-                    if (entry != null)
-                        newSyncEntries.Nodes[name] = entry;
+                    SynchronizeOrphanEntry(
+                        createDirectory, deleteEmptyDirectory, copyFile, deleteFile,
+                        true, leftBase, rightBase, path, name, ignoreEntries, oldEntry,
+                        newSyncEntries.Nodes);
                     break;
                 case PairEnumerator.Existance.Both:
                     // 左右両方にある
-                    if (IsDirectory(leftDirectoryPath, name))
+                    if (IsDirectory(left, name))
                     {
-                        if (IsDirectory(rightDirectoryPath, name))
+                        if (IsDirectory(right, name))
                         {
                             // 左右両方ともディレクトリである
                             SyncEntries oldSubSyncEntries = oldEntry switch
@@ -41,54 +89,23 @@ public static class DirectorySynchronizer
                                 SyncEntries => (SyncEntries)oldEntry,// 左右でディレクトリが存在し続けている
                                 _ => new SyncEntries(),// 左右でディレクトリが新規作成された。あるいは、左右両方からファイルが削除され、左右どちらにもディレクトリが新規作成された
                             };
-                            newSyncEntries.Nodes[name] = Synchronize(
-                                Path.Combine(leftDirectoryPath, name),
-                                Path.Combine(rightDirectoryPath, name),
-                                ignoreEntries.GetSubEntries(name),
-                                oldSubSyncEntries);
+                            newSyncEntries.Nodes[name] = SynchronizeCore(
+                                createDirectory, deleteEmptyDirectory, copyFile, replaceFile, deleteFile,
+                                leftBase, rightBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name), oldSubSyncEntries);
                         }
                         else
                         {
                             // 左はディレクトリ、右はファイルである
-                            switch (oldEntry)
-                            {
-                                case null:
-                                    // 運用ミス。左にはディレクトリが新規作成され、右にはファイルが新規作成された
-                                    Console.WriteLine($"[Conflict] 一方ではディレクトリ、もう片方ではファイルが新規作成されています。");
-                                    // newSyncEntriesには追加しない
-                                    continue;
-                                case SyncEntries:
-                                    // 左にはディレクトリが存在し続けているが、右はディレクトリが削除され、ファイルが新規作成された
-                                    if (IsDirectoryUpdated(leftDirectoryPath, name, ignoreEntries.GetSubEntries(name), (SyncEntries)oldEntry))
-                                    {
-                                        // 運用ミス。左のディレクトリが更新されていた
-                                        Console.WriteLine($"[Operation Mistake] Directory updated on left side: {Path.Combine(leftDirectoryPath, name)}");
-                                        newSyncEntries.Nodes[name] = oldEntry;
-                                        continue;
-                                    }
-                                    // 特殊運用。左のディレクトリは更新されていないが、右のディレクトリが削除され、ファイルが新規作成された
-                                    MoveDirectoryToRecycleBin(leftDirectoryPath, name, ignoreEntries.GetSubEntries(name));
-                                    newSyncEntries.Nodes[name] = CopyFile(rightDirectoryPath, leftDirectoryPath, name);
-                                    break;
-                                default:    // SyncEntriesLeaf
-                                    // 左のファイルは削除され、同名のディレクトリが作成された
-                                    if (IsFileUpdated(rightDirectoryPath, name, (SyncEntriesLeaf)oldEntry))
-                                    {
-                                        // 運用ミス。左のファイルは削除され、同名のディレクトリが作成されたのに、右のファイルは更新されている
-                                        Console.WriteLine($"[Operation Mistake] File updated on left side: {Path.Combine(leftDirectoryPath, name)}");
-                                        newSyncEntries.Nodes[name] = oldEntry;
-                                        continue;
-                                    }
-                                    // 特殊運用。左のファイルが削除され、同名のディレクトリが作成された
-                                    MoveFileToRecycleBin(rightDirectoryPath, name);
-                                    newSyncEntries.Nodes[name] = CopyDirectory(leftDirectoryPath, rightDirectoryPath, name, ignoreEntries.GetSubEntries(name));
-                                    break;
-                            }
+                            SynchronizeDifferentTypeEntry(
+                                createDirectory, deleteEmptyDirectory, copyFile, deleteFile,
+                                true, leftBase, rightBase, path, name, ignoreEntries, oldEntry,
+                                newSyncEntries.Nodes);
+                            break;
                         }
                     }
                     else
                     {
-                        if (IsDirectory(rightDirectoryPath, name))
+                        if (IsDirectory(right, name))
                         {
                             // 左はファイル、右はディレクトリである
                             switch (oldEntry)
@@ -98,39 +115,42 @@ public static class DirectorySynchronizer
                                     Console.WriteLine($"[Conflict] 一方ではディレクトリ、もう片方ではファイルが新規作成されています。");
                                     // newSyncEntriesには追加しない
                                     continue;
-                                case SyncEntriesLeaf:
-                                    // 左にはファイルが存在し続けているが、右はファイルが削除され、ディレクトリが新規作成された
-                                    if (IsFileUpdated(leftDirectoryPath, name, (SyncEntriesLeaf)oldEntry))
-                                    {
-                                        // 運用ミス。左のファイルは更新され、右のファイルは削除され、ディレクトリが新規作成された
-                                        Console.WriteLine($"[Operation Mistake] File updated on left side: {Path.Combine(leftDirectoryPath, name)}");
-                                        newSyncEntries.Nodes[name] = oldEntry;
-                                        continue;
-                                    }
-                                    // 特殊運用。左のファイルは更新されていないが、右のファイルが削除され、ディレクトリが新規作成された
-                                    MoveFileToRecycleBin(leftDirectoryPath, name);
-                                    newSyncEntries.Nodes[name] = CopyDirectory(rightDirectoryPath, leftDirectoryPath, name, ignoreEntries.GetSubEntries(name));
-                                    break;
-                                default:    // SyncEntries
-                                    // 左のディレクトリは削除され、同名のファイルが作成された
-                                    if (IsDirectoryUpdated(rightDirectoryPath, name, ignoreEntries.GetSubEntries(name), (SyncEntries)oldEntry))
+                                case SyncEntries:
+                                    // 右にはディレクトリが存在し続けているが、左のディレクトリは削除され、同名のファイルが作成された
+                                    if (IsDirectoryUpdated(Path.Combine(right, name), ignoreEntries.GetSubEntries(name), (SyncEntries)oldEntry))
                                     {
                                         // 運用ミス。左のディレクトリは削除され、同名のファイルが作成されたのに、右のディレクトリは更新されている
-                                        Console.WriteLine($"[Operation Mistake] Directory updated on left side: {Path.Combine(leftDirectoryPath, name)}");
+                                        Console.WriteLine($"[Operation Mistake] Directory updated on right side: {Path.Combine(right, name)}");
                                         newSyncEntries.Nodes[name] = oldEntry;
                                         continue;
                                     }
                                     // 特殊運用。左のディレクトリが削除され、同名のファイルが作成された
-                                    MoveDirectoryToRecycleBin(rightDirectoryPath, name, ignoreEntries.GetSubEntries(name));
-                                    newSyncEntries.Nodes[name] = CopyFile(leftDirectoryPath, rightDirectoryPath, name);
+                                    DeleteDirectory(
+                                        deleteFile, deleteEmptyDirectory,
+                                        false, rightBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name));
+                                    newSyncEntries.Nodes[name] = copyFile(true, leftBase, rightBase, Path.Combine(path, name));
+                                    break;
+                                default:    // SyncEntriesLeaf
+                                    // 左にはファイルが存在し続けているが、右はファイルが削除され、ディレクトリが新規作成された
+                                    if (IsFileUpdated(left, name, (SyncEntriesLeaf)oldEntry))
+                                    {
+                                        // 運用ミス。右のファイルは削除され、同名のディレクトリが作成されたのに、左のファイルは更新されている
+                                        Console.WriteLine($"[Operation Mistake] File updated on left side: {Path.Combine(left, name)}");
+                                        newSyncEntries.Nodes[name] = oldEntry;
+                                        continue;
+                                    }
+                                    // 特殊運用。右のファイルが削除され、同名のディレクトリが新規作成された
+                                    deleteFile(true, leftBase, Path.Combine(path, name));
+                                    newSyncEntries.Nodes[name] = CopyDirectory(false, leftBase, rightBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name),
+                                        createDirectory, copyFile);
                                     break;
                             }
                         }
                         else
                         {
                             // 左右どちらもファイルである
-                            var leftUpdateTime = GetLastWriteTimeUtc(leftDirectoryPath, name);
-                            var rightUpdateTime = GetLastWriteTimeUtc(rightDirectoryPath, name);
+                            var leftUpdateTime = GetLastWriteTimeUtc(left, name);
+                            var rightUpdateTime = GetLastWriteTimeUtc(right, name);
                             switch (oldEntry)
                             {
                                 case SyncEntriesLeaf:
@@ -140,12 +160,12 @@ public static class DirectorySynchronizer
                                         if (rightUpdateTime != ((SyncEntriesLeaf)oldEntry).LastModifiedUtc)
                                         {
                                             // 運用ミス。左右で別々に更新された
-                                            Console.WriteLine($"[Operation Mistake] File updated on both side: {leftDirectoryPath}, {rightDirectoryPath}, {name}");
+                                            Console.WriteLine($"[Operation Mistake] File updated on both side: {left}, {right}, {name}");
                                             newSyncEntries.Nodes[name] = oldEntry;
                                             continue;
                                         }
                                         // 左のファイルが更新された
-                                        newSyncEntries.Nodes[name] = CopyFile(leftDirectoryPath, rightDirectoryPath, name);
+                                        newSyncEntries.Nodes[name] = replaceFile(true, leftBase, rightBase, Path.Combine(path, name));
                                         continue;
                                     }
                                     else if (leftUpdateTime < rightUpdateTime)
@@ -153,23 +173,25 @@ public static class DirectorySynchronizer
                                         if (leftUpdateTime != ((SyncEntriesLeaf)oldEntry).LastModifiedUtc)
                                         {
                                             // 運用ミス。左右で別々に更新された
-                                            Console.WriteLine($"[Operation Mistake] File updated on both side: {leftDirectoryPath}, {rightDirectoryPath}, {name}");
+                                            Console.WriteLine($"[Operation Mistake] File updated on both side: {left}, {right}, {name}");
                                             newSyncEntries.Nodes[name] = oldEntry;
                                             continue;
                                         }
                                         // 右のファイルが更新された
-                                        newSyncEntries.Nodes[name] = CopyFile(rightDirectoryPath, leftDirectoryPath, name);
+                                        newSyncEntries.Nodes[name] = replaceFile(false, leftBase, rightBase, Path.Combine(path, name));
                                         continue;
                                     }
                                     else
                                     {
                                         if (leftUpdateTime != ((SyncEntriesLeaf)oldEntry).LastModifiedUtc)
                                         {
-                                            var size = GetFileSize(leftDirectoryPath, name);
+                                            // 特殊運用。左右で別々に更新されたが、手動同期済みだった
+                                            var size = GetFileSize(left, name);
                                             newSyncEntries.Nodes[name] = new SyncEntriesLeaf(leftUpdateTime, size);
                                         }
                                         else
                                         {
+                                            // ファイルは更新されていない
                                             newSyncEntries.Nodes[name] = oldEntry;
                                         }
                                     }
@@ -180,16 +202,16 @@ public static class DirectorySynchronizer
                                     if (leftUpdateTime != rightUpdateTime)
                                     {
                                         // 運用ミス。左右でファイルが新規作成されたが、更新日時が異なる
-                                        Console.WriteLine($"[Conflict] File:{name} was created on both sides with different timestamps: {leftDirectoryPath} ({leftUpdateTime}), {rightDirectoryPath} ({rightUpdateTime})");
+                                        Console.WriteLine($"[Conflict] File:{name} was created on both sides with different timestamps: {left} ({leftUpdateTime}), {right} ({rightUpdateTime})");
                                         newSyncEntries.Nodes[name] = oldEntry;
                                         continue;
                                     }
-                                    var leftSize = GetFileSize(leftDirectoryPath, name);
-                                    var rightSize = GetFileSize(rightDirectoryPath, name);
+                                    var leftSize = GetFileSize(left, name);
+                                    var rightSize = GetFileSize(right, name);
                                     if (leftSize != rightSize)
                                     {
                                         // 異常事態。左右でファイルが新規作成されたが、更新日時が同じなのにファイルサイズが異なる
-                                        Console.WriteLine($"[Operation Mistake] File:{name} was created on both sides with different sizes: {leftDirectoryPath} ({leftSize}), {rightDirectoryPath} ({rightSize})");
+                                        Console.WriteLine($"[Operation Mistake] File:{name} was created on both sides with different sizes: {left} ({leftSize}), {right} ({rightSize})");
                                         newSyncEntries.Nodes[name] = oldEntry;
                                         continue;
                                     }
@@ -202,9 +224,10 @@ public static class DirectorySynchronizer
                     break;
                 case PairEnumerator.Existance.OnlyRight:
                     // 右にしかない
-                    entry = SynchronizeSingleSideEntry(rightDirectoryPath, leftDirectoryPath, name, ignoreEntries, oldEntry);
-                    if (entry != null)
-                        newSyncEntries.Nodes[name] = entry;
+                    SynchronizeOrphanEntry(
+                        createDirectory, deleteEmptyDirectory, copyFile, deleteFile,
+                        false, leftBase, rightBase, path, name, ignoreEntries, oldEntry,
+                        newSyncEntries.Nodes);
                     break;
             }
         }
@@ -212,33 +235,53 @@ public static class DirectorySynchronizer
         return newSyncEntries;
     }
 
-    static SyncEntriesNode? SynchronizeSingleSideEntry(
-        string aDirectoryPath,
-        string bDirectoryPath,
+    /// <summary>
+    /// 片方にしかファイルあるいはディレクトリがない場合の処理<br/>
+    /// SynchronizeCoreの下請け。
+    /// </summary>
+    static void SynchronizeOrphanEntry(
+        Action<bool, string, string> createDirectory,
+        Action<bool, string, string> deleteEmptyDirectory,
+        Func<bool, string, string, string, SyncEntriesNode> copyFile,
+        Action<bool, string, string> deleteFile,
+        bool isLeftOrphan,
+        string leftBase,
+        string rightBase,
+        string path,
         string name,
         IgnoreEntries ignoreEntries,
-        SyncEntriesNode oldEntry)
+        SyncEntriesNode oldEntry,
+        IDictionary<string, SyncEntriesNode> newSyncEntriesNodes)
     {
-        if (IsDirectory(aDirectoryPath, name))
+        var (orphanBase, missingBase) = GetSrcDest(isLeftOrphan, leftBase, rightBase);
+        var p = Path.Combine(path, name);
+        var left = Path.Combine(leftBase, p);
+        var right = Path.Combine(rightBase, p);
+        var (orphan, missing) = GetSrcDest(isLeftOrphan, left, right);
+
+        if (Directory.Exists(orphan))
         {
+            var ie = ignoreEntries.GetSubEntries(name);
             switch (oldEntry)
             {
-                case null:
-                    // Aにディレクトリが新規作成された
-                    return CopyDirectory(aDirectoryPath, bDirectoryPath, name, ignoreEntries.GetSubEntries(name));
                 case SyncEntries:
-                    if (IsDirectoryUpdated(aDirectoryPath, name, ignoreEntries.GetSubEntries(name), (SyncEntries)oldEntry))
+                    if (IsDirectoryUpdated(orphan, ie, (SyncEntries)oldEntry))
                     {
                         // 運用ミス。Bのディレクトリが削除されたのに、Aのディレクトリが更新された
-                        Console.WriteLine($"[Operation Mistake] Directory {Path.Combine(bDirectoryPath, name)} was deleted, but directory {Path.Combine(aDirectoryPath, name)} was updated.");
-                        return oldEntry;
+                        Console.WriteLine($"[Operation Mistake] Directory {missing} was deleted, but directory {orphan} was updated.");
+                        newSyncEntriesNodes[name] = oldEntry;
+                        return;
                     }
-                    // Bからディレクトリが削除された
-                    MoveDirectoryToRecycleBin(aDirectoryPath, name, ignoreEntries.GetSubEntries(name));
-                    return null;
-                default: // SyncEntriesLeaf
-                    // 特殊運用。AB両方からファイルが削除され、Aにディレクトリが新規作成された
-                    return CopyDirectory(aDirectoryPath, bDirectoryPath, name, ignoreEntries.GetSubEntries(name));
+                    // ディレクトリが削除された
+                    DeleteDirectory(
+                        deleteFile, deleteEmptyDirectory,
+                        isLeftOrphan, orphanBase, Path.Combine(path, name), ie);
+                    break;
+                default: // null, SyncEntriesLeaf
+                    // ディレクトリが新規作成された
+                    // あるいは、特殊運用。両方からファイルが削除され、一方にディレクトリが新規作成された
+                    newSyncEntriesNodes[name] = CopyDirectory(isLeftOrphan, leftBase, rightBase, p, ie, createDirectory, copyFile);
+                    break;
             }
         }
         else
@@ -246,28 +289,90 @@ public static class DirectorySynchronizer
             switch (oldEntry)
             {
                 case SyncEntriesLeaf oldLeaf:
-                    var ut = GetLastWriteTimeUtc(aDirectoryPath, name);
+                    var ut = File.GetLastWriteTimeUtc(orphan);
                     if (ut != oldLeaf.LastModifiedUtc)
                     {
-                        // 運用ミス。Bのファイルが削除されたのに、Aのファイルが更新された
-                        Console.WriteLine($"[Operation Mistake] File {Path.Combine(bDirectoryPath, name)} was deleted, but file {{Path.Combine(aDirectoryPath, name)}} was updated.");
-                        return oldEntry;
+                        // 運用ミス。一方でファイルが削除され、他方のファイルが更新された
+                        Console.WriteLine($"[Operation Mistake] File {missing} was deleted, but file {orphan} was updated.");
+                        newSyncEntriesNodes[name] = oldEntry;
+                        return;
                     }
-                    var size = GetFileSize(aDirectoryPath, name);
-                    if (size != oldLeaf.Size)
-                    {
-                        // 異常事態。Aのファイルの更新日時は変わっていないのに、ファイルサイズが変わっている
-                        Console.WriteLine($"TODO 更新日時が変わらないのに、ファイルサイズが変わっています。{Path.Combine(aDirectoryPath, name)}");
-                        return oldEntry;
-                    }
-                    // Bのファイルが削除された。
-                    MoveFileToRecycleBin(aDirectoryPath, name);
-                    return null;
+                    // ファイルが削除された。
+                    deleteFile(isLeftOrphan, orphanBase, Path.Combine(path, name));
+                    break;
                 default:    // null or SyncEntries
-                    // Aにファイルが新規作成された
-                    // あるいは、AB両方からディレクトリが削除され、Aにファイルが新規作成された
-                    return CopyFile(aDirectoryPath, bDirectoryPath, name);
+                    // ファイルが新規作成された
+                    // あるいは、特殊運用。両方からディレクトリが削除され、一方にファイルが新規作成された
+                    newSyncEntriesNodes[name] = copyFile(isLeftOrphan, leftBase, rightBase, Path.Combine(path, name));
+                    break;
             }
+        }
+    }
+
+    /// <summary>
+    /// 同名エントリーだが、一つはファイル、もう一つはディレクトリという違うタイプの場合の処理。<br/>
+    /// SynchronizeCoreの下請け。
+    /// </summary>
+    static void SynchronizeDifferentTypeEntry(
+        Action<bool, string, string> createDirectory,
+        Action<bool, string, string> deleteEmptyDirectory,
+        Func<bool, string, string, string, SyncEntriesNode> copyFile,
+        Action<bool, string, string> deleteFile,
+        bool isLeftDirectory,
+        string leftBase,
+        string rightBase,
+        string path,
+        string name,
+        IgnoreEntries ignoreEntries,
+        SyncEntriesNode oldEntry,
+        IDictionary<string, SyncEntriesNode> newSyncEntriesNode)
+    {
+        if (oldEntry == null)
+        {
+            // 運用ミス。左右で異なる種類のものが新規作成された
+            Console.WriteLine($"[Conflict] A directory was created on one side and a file on the other.{Path.Combine(path, name)}");
+            return;
+        }
+
+        var (directoryBase, fileBase) = GetSrcDest(isLeftDirectory, leftBase, rightBase);
+        var directoryPath = Path.Combine(directoryBase, path, name);
+        var filePath = Path.Combine(fileBase, path, name);
+
+        switch (oldEntry)
+        {
+            case SyncEntries:
+                if (IsDirectoryUpdated(directoryPath, ignoreEntries.GetSubEntries(name), (SyncEntries)oldEntry))
+                {
+                    // 運用ミス。一方ではディレクトリが削除され、同名のファイルが作成されたのに、もう一方ではディレクトリが更新されている
+                    Console.WriteLine("[Operation Mistake]"
+                        + " A directory was deleted and a file with the same name was created on one side,"
+                        + " while the directory was updated on the other. "
+                        + Path.Combine(path, name));
+                    newSyncEntriesNode[name] = oldEntry;
+                    return;
+                }
+                // 特殊運用。ディレクトリが削除され、同名のファイルが作成された
+                DeleteDirectory(
+                    deleteFile, deleteEmptyDirectory,
+                    isLeftDirectory, directoryBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name));
+                newSyncEntriesNode[name] = copyFile(!isLeftDirectory, leftBase, rightBase, Path.Combine(path, name));
+                break;
+            default:    // SyncEntriesLeaf
+                if (IsFileUpdated(Path.Combine(fileBase, path), name, (SyncEntriesLeaf)oldEntry))
+                {
+                    // 運用ミス。右のファイルは削除され、同名のディレクトリが作成されたのに、左のファイルは更新されている
+                    Console.WriteLine("[Operation Mistake]"
+                        + " A file was deleted and a directory with the same name was created on one side,"
+                        + " while the file was updated on the other. "
+                        + Path.Combine(path, name));
+                    newSyncEntriesNode[name] = oldEntry;
+                    return;
+                }
+                // 特殊運用。ファイルが削除され、同名のディレクトリが新規作成された
+                deleteFile(isLeftDirectory, fileBase, Path.Combine(path, name));
+                newSyncEntriesNode[name] = CopyDirectory(isLeftDirectory, leftBase, rightBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name),
+                    createDirectory, copyFile);
+                break;
         }
     }
 
@@ -275,18 +380,17 @@ public static class DirectorySynchronizer
 
     private static DateTime GetLastWriteTimeUtc(string directoryPath, string fileName) => File.GetLastWriteTimeUtc(Path.Combine(directoryPath, fileName));
 
-    static long GetFileSize(string filePath)
-    {
-        var info = new FileInfo(filePath)!;
-        var size = info.Length;
-        return size;
-    }
+    static long GetFileSize(string directoryPath, string fileName) => FileUtils.GetSize(Path.Combine(directoryPath, fileName));
 
-    static long GetFileSize(string directoryPath, string fileName) => GetFileSize(Path.Combine(directoryPath, fileName));
-
-    private static bool IsDirectoryUpdated(string parentDirectoryPath, string directoryName, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
+    /// <summary>
+    /// ディレクトリ内に、更新されたファイルがあるかどうかを返す。
+    /// </summary>
+    /// <param name="directoryPath"></param>
+    /// <param name="ignoreEntries"></param>
+    /// <param name="oldSyncEntries"></param>
+    /// <returns></returns>
+    private static bool IsDirectoryUpdated(string directoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
-        var directoryPath = Path.Combine(parentDirectoryPath, directoryName);
         foreach (var name in EntryEnumerator.Enumerate(directoryPath, ignoreEntries))
         {
             var node = oldSyncEntries.Nodes[name];
@@ -300,7 +404,7 @@ public static class DirectorySynchronizer
                     default:
                         if (node == null)
                             node = new SyncEntries();
-                        if (IsDirectoryUpdated(directoryPath, name, ignoreEntries.GetSubEntries(name), (SyncEntries)node))
+                        if (IsDirectoryUpdated(Path.Combine(directoryPath, name), ignoreEntries.GetSubEntries(name), (SyncEntries)node))
                         {
                             return true;
                         }
@@ -340,61 +444,91 @@ public static class DirectorySynchronizer
     /// <param name="sourceDirectoryPath"></param>
     /// <param name="destinationDirectoryPath"></param>
     /// <param name="ignoreEntries"></param>
-    /// <returns>コピーしたエントリー（ファイル、ディレクトリ）の情報</returns>
+    /// <returns>コピーしたエントリー(ファイル、ディレクトリ)の情報</returns>
     /// <exception cref="NotImplementedException"></exception>
-    static SyncEntries CopyDirectory(string sourceDirectoryPath, string destinationDirectoryPath, string directoryName, IgnoreEntries ignoreEntries)
+    static SyncEntries CopyDirectory(bool leftToRight, string leftBase, string rightBase, string path, IgnoreEntries ignoreEntries,
+        Action<bool, string, string> createDirectory,
+        Func<bool, string, string, string, SyncEntriesNode> copyFile)
     {
         var newEntries = new SyncEntries();
-        var src = Path.Combine(sourceDirectoryPath, directoryName);
-        var dst = Path.Combine(destinationDirectoryPath, directoryName);
-        Directory.CreateDirectory(dst);
+        var srcBase = leftToRight ? leftBase : rightBase;
+        var src = Path.Combine(srcBase, path);
+        createDirectory(!leftToRight, srcBase, path);
         foreach (var name in EntryEnumerator.Enumerate(src, ignoreEntries))
         {
+            var p = Path.Combine(path, name);
             if (IsDirectory(src, name))
-            {
-                newEntries.Nodes[name] = CopyDirectory(src, dst, name, ignoreEntries.GetSubEntries(name));
-            }
+                newEntries.Nodes[name] = CopyDirectory(leftToRight, leftBase, rightBase, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile);
             else
-            {
-                newEntries.Nodes[name] = CopyFile(src, dst, name);
-            }
+                newEntries.Nodes[name] = copyFile(leftToRight, leftBase, rightBase, p);
         }
         return newEntries;
     }
 
-    static SyncEntriesLeaf CopyFile(string sourceDirectoryPath, string destinationDirectoryPath, string fileName)
+    static SyncEntriesLeaf CreateSyncEntriesLeaf(string filePath)
     {
-        var src = Path.Combine(sourceDirectoryPath, fileName);
-        var dst = Path.Combine(destinationDirectoryPath, fileName);
-        File.Copy(src, dst, false);
-        var lastModifiedUtc = File.GetLastWriteTimeUtc(src);
-        var size = GetFileSize(src);
+        var lastModifiedUtc = File.GetLastWriteTimeUtc(filePath);
+        var size = FileUtils.GetSize(filePath);
         return new SyncEntriesLeaf(lastModifiedUtc, size);
     }
 
     /// <summary>
-    /// ディレクトリをゴミ箱に移動させる<br/>
-    /// 上記説明は不正確。正確にはディレクトリ内のファイルのうち、無視ディレクトリ内のファイル以外のファイルをゴミ箱に移動させ、ディレクトリ自体は削除する。<br/>
+    /// ディレクトリを削除する<br/>
+    /// 上記説明は不正確。正確にはディレクトリ内の各ファイルをゴミ箱に移動させ、ディレクトリを削除する。<br/>
+    /// ただし、無視ディレクトリ内のファイルについては削除しない。また、このようなファイルを含むディレクトリも削除はしない。<br/>
     /// </summary>
-    /// <param name="directoryPath"></param>
-    /// <param name="directoryName"></param>
-    /// <param name="ignoreEntries"></param>
-    /// <exception cref="Win32Exception"></exception>
-    private static void MoveDirectoryToRecycleBin(string directoryPath, string directoryName, IgnoreEntries ignoreEntries)
+    private static void DeleteDirectory(
+        Action<bool, string, string> deleteFile,
+        Action<bool, string, string> deleteEmptyDirectory,
+        bool isLeft,
+        string basePath,
+        string path,
+        IgnoreEntries ignoreEntries)
     {
-        var p = Path.Combine(directoryPath, directoryName);
-        foreach (var name in EntryEnumerator.Enumerate(p, ignoreEntries))
+        var dirPath = Path.Combine(basePath, path);
+        foreach (var name in EntryEnumerator.Enumerate(dirPath, ignoreEntries))
         {
-            if (IsDirectory(p, name))
+            var p = Path.Combine(path, name);
+            if (Directory.Exists(Path.Combine(basePath, p)))
             {
-                MoveDirectoryToRecycleBin(p, name, ignoreEntries.GetSubEntries(name));
+                DeleteDirectory(
+                    deleteFile, deleteEmptyDirectory,
+                    isLeft, basePath, p, ignoreEntries.GetSubEntries(name));
             }
             else
             {
-                MoveFileToRecycleBin(p, name);
+                deleteFile(isLeft, basePath, p);
             }
         }
-        if (!RemoveDirectory(p))
+        deleteEmptyDirectory(false, "", path);
+    }
+
+    static void PrintCreateDirectory(bool isLeft, string _, string path)
+    {
+        if (isLeft)
+            Console.WriteLine($"[CREATE  >] {path}");
+        else
+            Console.WriteLine($"[<  CREATE] {path}");
+    }
+
+    static void CreateDirectory(bool isLeft, string basePath, string path)
+    {
+        PrintCreateDirectory(isLeft, basePath, path);
+        Directory.CreateDirectory(Path.Combine(basePath, path));
+    }
+
+    static void PrintDeleteEmptyDirectory(bool isLeft, string _, string path)
+    {
+        if (isLeft)
+            Console.WriteLine($"[< DELETE] {path}");
+        else
+            Console.WriteLine($"[DELETE >] {path}");
+    }
+
+    static void DeleteEmptyDirectory(bool isLeft, string _, string path)
+    {
+        PrintDeleteEmptyDirectory(isLeft, "", path);
+        if (!Win32.RemoveDirectory(path))
         {
             // ディレクトリ削除失敗の理由が、ディレクトリが空でないためであれば、正常扱いとする(無視ディレクトリがあれば、ディレクトリが空にならないため)
             int error = Marshal.GetLastWin32Error();
@@ -405,6 +539,59 @@ public static class DirectorySynchronizer
         }
     }
 
-    private static void MoveFileToRecycleBin(string directoryPath, string fileName) => RecycleBin.MoveToRecycleBin(Path.Combine(directoryPath, fileName));
+    static SyncEntriesLeaf PrintCopyFile(bool leftToRight, string _, string __, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[COPY    >] {path}");
+        else
+            Console.WriteLine($"[<    COPY] {path}");
+        return _dummySyncEntriesLeaf;
+    }
 
+    static SyncEntriesLeaf CopyFile(bool leftToRight, string leftBase, string rightBase, string path)
+    {
+        PrintCopyFile(leftToRight, leftBase, rightBase, path);
+        var (src, dest) = GetSrcDest(leftToRight, Path.Combine(leftBase, path), Path.Combine(rightBase, path));
+        File.Copy(src, dest, false);
+        return CreateSyncEntriesLeaf(src);
+    }
+
+    static SyncEntriesLeaf PrintReplaceFile(bool leftToRight, string _, string __, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[REPLACE >] {path}");
+        else
+            Console.WriteLine($"[< REPLACE] {path}");
+        return _dummySyncEntriesLeaf;
+    }
+
+    private static SyncEntriesLeaf ReplaceFile(bool leftToRight, string leftBase, string rightBase, string path)
+    {
+        PrintReplaceFile(leftToRight, leftBase, rightBase, path);
+        var (src, dest) = GetSrcDest(leftToRight, Path.Combine(leftBase, path), Path.Combine(rightBase, path));
+        FileUtils.ReplaceFile(src, dest);
+        return CreateSyncEntriesLeaf(src);
+    }
+
+    static void PrintDeleteFile(bool isLeft, string _, string path)
+    {
+        if (isLeft)
+            Console.WriteLine($"[< DELETE] {path}");
+        else
+            Console.WriteLine($"[DELETE >] {path}");
+    }
+
+    static void DeleteFile(bool isLeft, string basePath, string path)
+    {
+        PrintDeleteFile(isLeft, basePath, path);
+        RecycleBin.MoveToRecycleBin(Path.Combine(basePath, path));
+    }
+
+    static (string src, string dest) GetSrcDest(bool leftToRight, string leftPath, string rightPath)
+    {
+        if (leftToRight)
+            return (leftPath, rightPath);
+        else
+            return (rightPath, leftPath);
+    }
 }

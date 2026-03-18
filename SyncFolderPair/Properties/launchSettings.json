@@ -24,10 +24,6 @@
       "commandLineArgs": "add test_pair test\\left test\\right",
       "workingDirectory": ".."
     },
-    "remove test pair": {
-      "commandName": "Project",
-      "commandLineArgs": "remove test_pair\r\n"
-    },
     "align test pair check": {
       "commandName": "Project",
       "commandLineArgs": "align test_pair check"
@@ -59,6 +55,46 @@
     "init ws30movie": {
       "commandName": "Project",
       "commandLineArgs": "init wd30movie"
+    },
+    "add st4000dm": {
+      "commandName": "Project",
+      "commandLineArgs": "add st4000dmmovie H:\\movie I:\\movie"
+    },
+    "delete test pair": {
+      "commandName": "Project",
+      "commandLineArgs": "delete test_pair\r\n"
+    },
+    "align st4000dmmovie check": {
+      "commandName": "Project",
+      "commandLineArgs": "align st4000dmmovie check"
+    },
+    "sync ws30movie check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd30movie check"
+    },
+    "sync ws30movie": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd30movie"
+    },
+    "align ws60movie check": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd60ezatmovie check"
+    },
+    "add wd60movie": {
+      "commandName": "Project",
+      "commandLineArgs": "add wd60ezatmovie E:\\movie G:\\movie"
+    },
+    "init ws60movie": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd60ezatmovie"
+    },
+    "align wd60movie": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd60ezatmovie"
+    },
+    "sync wd60 check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd60ezatmovie check"
     }
   }
 }

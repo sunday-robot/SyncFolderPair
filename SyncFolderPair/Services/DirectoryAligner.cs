@@ -19,18 +19,15 @@ public static class DirectoryAligner
             rightDirectoryPath,
             "",
             ignoreEntries,
-            (baseDir, path) =>  // ディレクトリを作成する
+            CreateDirectory,
+            (leftToRight, leftBaseDir, rightBaseDir, path) =>
             {
-                CreateDirectory(baseDir, path);
-            },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルをコピーする(上書きコピーではない)
-            {
-                CopyFile(srcBaseDir, destBaseDir, path);
+                CopyFile(leftToRight, leftBaseDir, rightBaseDir, path);
                 return true;
             },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルを上書きコピーする
+            (leftToRight, _, _, path) =>
             {
-                // 何もしない
+                PrintSkipFile(leftToRight, path);
                 return true;
             });
     }
@@ -42,18 +39,18 @@ public static class DirectoryAligner
             rightDirectoryPath,
             "",
             ignoreEntries,
-            (baseDir, path) =>  // ディレクトリを作成する
+            (isLeft, _, path) =>
             {
-                // 何もしない
+                PrintCreateDirectory(isLeft, path);
             },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルをコピーする(上書きコピーではない)
+            (leftToRight, _, _, path) =>
             {
-                // 何もしない
+                PrintCopyFile(leftToRight, path);
                 return true;
             },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルを上書きコピーする
+            (leftToRight, _, _, path) =>
             {
-                // 何もしない
+                PrintSkipFile(leftToRight, path);
                 return true;
             });
     }
@@ -71,18 +68,15 @@ public static class DirectoryAligner
             rightDirectoryPath,
             "",
             ignoreEntries,
-            (baseDir, path) =>  // ディレクトリを作成する
+            CreateDirectory,
+            (leftToRight, leftBaseDir, rightBaseDir, path) =>  // ファイルをコピーする(上書きコピーではない)
             {
-                CreateDirectory(baseDir, path);
-            },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルをコピーする(上書きコピーではない)
-            {
-                CopyFile(srcBaseDir, destBaseDir, path);
+                CopyFile(leftToRight, leftBaseDir, rightBaseDir, path);
                 return true;
             },
-            (srcBaseDir, destBaseDir, path) =>  // ファイルを上書きコピーする
+            (leftToRight, leftBaseDir, rightBaseDir, path) =>  // ファイルを上書きコピーする
             {
-                ReplaceFile(srcBaseDir, destBaseDir, path);
+                ReplaceFile(leftToRight, leftBaseDir, rightBaseDir, path);
                 return true;
             });
     }
@@ -92,9 +86,9 @@ public static class DirectoryAligner
         string rightBaseDir,
         string path,
         IgnoreEntries ignoreEntries,
-        Action<string, string> createDirectory,
-        Func<string, string, string, bool> copyFile,
-        Func<string, string, string, bool> overwriteFile)
+        Action<bool, string, string> createDirectory,
+        Func<bool, string, string, string, bool> copyFile,
+        Func<bool, string, string, string, bool> overwriteFile)
     {
         var leftDirectoryPath = Path.Combine(leftBaseDir, path);
         var rightDirectoryPath = Path.Combine(rightBaseDir, path);
@@ -109,13 +103,12 @@ public static class DirectoryAligner
                     // 左にしかない
                     if (IsDirectory(leftDirectoryPath, name))
                     {
-                        if (!CopyDirectory(leftBaseDir, rightBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
+                        if (!CopyDirectory(true, leftBaseDir, rightBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
                             return false;
                     }
                     else
                     {
-                        Console.WriteLine($"[<   ] created    {p}");
-                        if (!copyFile(leftBaseDir, rightBaseDir, p))
+                        if (!copyFile(true, leftBaseDir, rightBaseDir, p))
                             return false;
                     }
                     break;
@@ -151,16 +144,12 @@ public static class DirectoryAligner
                             var rightUpdateTime = GetLastWriteTimeUtc(rightDirectoryPath, name);
                             if (leftUpdateTime > rightUpdateTime)
                             {
-                                Console.WriteLine($"[<   ] modified    {p}, {leftUpdateTime}, {rightUpdateTime}");
-
-                                if (!overwriteFile(leftDirectoryPath, rightDirectoryPath, p))
+                                if (!overwriteFile(true, leftDirectoryPath, rightDirectoryPath, p))
                                     return false;
                             }
                             else if (leftUpdateTime < rightUpdateTime)
                             {
-                                Console.WriteLine($"[   >] modified    {p}, {leftUpdateTime}, {rightUpdateTime}");
-
-                                if (!overwriteFile(rightDirectoryPath, leftDirectoryPath, p))
+                                if (!overwriteFile(false, leftDirectoryPath, rightDirectoryPath, p))
                                     return false;
                             }
                         }
@@ -170,13 +159,12 @@ public static class DirectoryAligner
                     // 右にしかない
                     if (IsDirectory(rightDirectoryPath, name))
                     {
-                        if (!CopyDirectory(rightBaseDir, leftBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
+                        if (!CopyDirectory(false, rightBaseDir, leftBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
                             return false;
                     }
                     else
                     {
-                        Console.WriteLine($"[   >] created    {p}");
-                        if (!copyFile(rightBaseDir, leftBaseDir, p))
+                        if (!copyFile(false, leftBaseDir, rightBaseDir, p))
                             return false;
                     }
                     break;
@@ -187,115 +175,104 @@ public static class DirectoryAligner
     }
 
     static bool CopyDirectory(
+        bool leftToRight,
         string sourceBaseDirectoryPath,
         string destinationBaseDirectoryPath,
         string relativePath,
         IgnoreEntries ignoreEntries,
-        Action<string, string> createDirectory,
-        Func<string, string, string, bool> copyFile)
+        Action<bool, string, string> createDirectory,
+        Func<bool, string, string, string, bool> copyFile)
     {
         var sourceDirectoryPath = Path.Combine(sourceBaseDirectoryPath, Path.Combine(relativePath));
 
-        createDirectory(destinationBaseDirectoryPath, relativePath);
+        createDirectory(!leftToRight, destinationBaseDirectoryPath, relativePath);
         foreach (var name in EntryEnumerator.Enumerate(sourceDirectoryPath, ignoreEntries))
         {
             var p = Path.Combine(relativePath, name);
             if (IsDirectory(sourceDirectoryPath, name))
             {
-                if (!CopyDirectory(sourceBaseDirectoryPath, destinationBaseDirectoryPath, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
+                if (!CopyDirectory(leftToRight, sourceBaseDirectoryPath, destinationBaseDirectoryPath, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
                     return false;
             }
             else
             {
-                if (!copyFile(sourceBaseDirectoryPath, destinationBaseDirectoryPath, p))
+                if (!copyFile(leftToRight, sourceBaseDirectoryPath, destinationBaseDirectoryPath, p))
                     return false;
             }
         }
         return true;
     }
 
-    static void CreateDirectory(string baseDir, string path)
+    static void PrintCreateDirectory(bool isLeft, string path)
     {
+        if (isLeft)
+            Console.WriteLine($"[<     MKDIR] {path}");
+        else
+            Console.WriteLine($"[MKDIR     >] {path}");
+    }
+
+    static void PrintCopyFile(bool leftToRight, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[COPY      >] {path}");
+        else
+            Console.WriteLine($"[<      COPY] {path}");
+    }
+
+    static void PrintSkipFile(bool leftToRight, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[SKIP      >] {path}");
+        else
+            Console.WriteLine($"[<      SKIP] {path}");
+    }
+
+    static void PrintOverwriteFile(bool leftToRight, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[OVERWRITE >] {path}");
+        else
+            Console.WriteLine($"[< OVERWRITE] {path}");
+    }
+
+    static void CreateDirectory(bool isLeft, string baseDir, string path)
+    {
+        PrintCreateDirectory(isLeft, path);
+
         var p = Path.Combine(baseDir, path);
         Directory.CreateDirectory(p);
     }
 
-    static void CopyFile(string srcBase, string destBase, string path)
+    static void CopyFile(bool leftToRight, string leftBase, string rightBase, string path)
     {
-        var src = Path.Combine(srcBase, path);
-        var dest = Path.Combine(destBase, path);
-        File.Copy(src, dest, false);
+        PrintCopyFile(leftToRight, path);
+
+        var left = Path.Combine(leftBase, path);
+        var right = Path.Combine(rightBase, path);
+        if (leftToRight)
+            File.Copy(left, right, false);
+        else
+            File.Copy(right, left, false);
     }
 
-    /// <summary>
-    /// dest側にあるファイルをゴミ箱に移動してから、source側のファイルをコピーする
-    /// </summary>
-    /// <param name="sourceBaseDirectory"></param>
-    /// <param name="destinationBaseDirectory"></param>
-    /// <param name="relativePath"></param>
-    static void ReplaceFile(string sourceBaseDirectory, string destinationBaseDirectory, string path)
+    static void ReplaceFile(bool leftToRight, string leftBaseDirectory, string rightBaseDirectory, string path)
     {
-        var sourcePath = Path.Combine(sourceBaseDirectory, path);
-        var destinationPath = Path.Combine(destinationBaseDirectory, path);
+        PrintOverwriteFile(leftToRight, path);
 
-        // GUID を使って衝突不可能な一時ファイル名を生成し、ファイルをコピーする
-        var tempPath = CreateTempFilePath(destinationPath);
-        File.Copy(sourcePath, tempPath, true);
-
-        // destination側のファイルをゴミ箱に移動し、一時ファイルの名前を本来の名前に変える。失敗したら、上で作った一時ファイルを削除する。
-        try
+        string src;
+        string dest;
+        if (leftToRight)
         {
-            MoveToRecycleBin(destinationPath);
-            File.Move(tempPath, destinationPath);
+            src = Path.Combine(leftBaseDirectory, path);
+            dest = Path.Combine(rightBaseDirectory, path);
         }
-        catch
+        else
         {
-            File.Delete(tempPath);
-            throw;
+            src = Path.Combine(rightBaseDirectory, path);
+            dest = Path.Combine(leftBaseDirectory, path);
         }
-    }
 
-    /// <summary>
-    /// GUIDを使用して一時ファイルの名前を作る。
-    /// </summary>
-    /// <param name="path"></param>
-    /// <returns></returns>
-    static string CreateTempFilePath(string path)
-    {
-        var dir = Path.GetDirectoryName(path)!;
-
-        while (true)
-        {
-            var guid = Guid.NewGuid().ToString("N");
-            var tempName = guid + ".tmp";
-            var tempPath = Path.Combine(dir, tempName);
-
-            // 既に存在しないことを確認する
-            // パス長制限に引っかかる場合はここで例外が出る
-            if (!File.Exists(tempPath) && !Directory.Exists(tempPath))
-                return tempPath;
-        }
-    }
-
-    /// <summary>
-    /// ファイルをゴミ箱に移動させる。
-    /// </summary>
-    /// <param name="path"></param>
-    static void MoveToRecycleBin(string path)
-    {
-        var op = new Win32.SHFILEOPSTRUCT
-        {
-            wFunc = Win32.FO_DELETE,
-            pFrom = path + "\0",    // pFormには、複数のパス名をセットすることができる。空文字列がパス名リストの終端を示すルールになっているので、"\0"を追加する必要がある。
-            fFlags = Win32.FOF_ALLOWUNDO |
-                     Win32.FOF_NOCONFIRMATION |
-                     Win32.FOF_SILENT
-        };
-        var result = Win32.SHFileOperation(ref op);
-        if (result != 0)
-            throw new IOException($"Failed to move to Recycle Bin: {path} (SHFileOperation returned {result})");
-        if (op.fAnyOperationsAborted != 0)
-            throw new IOException($"Recycle Bin operation was aborted: {path}");
+        FileUtils.ReplaceFile(src, dest);
     }
 
     static bool IsDirectory(string directoryPath, string entryName) => Directory.Exists(Path.Combine(directoryPath, entryName));
