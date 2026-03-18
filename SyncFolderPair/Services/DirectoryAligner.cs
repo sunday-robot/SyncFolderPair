@@ -1,6 +1,5 @@
 ﻿using SyncFolderPair.Types;
 using SyncFolderPair.Utils;
-using Win32Api;
 
 namespace SyncFolderPair.Services;
 
