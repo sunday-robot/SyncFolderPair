@@ -385,7 +385,7 @@ public static class DirectorySynchronizer
                 case SyncEntriesLeaf leaf:
                     if (Directory.Exists(p))
                         return true;    // ファイルが削除され、ディレクトリが作成された
-                    if (IsFileUpdated(path, leaf))
+                    if (IsFileUpdated(p, leaf))
                         return true;    // ファイルが更新された
                     break;
             }
@@ -397,7 +397,7 @@ public static class DirectorySynchronizer
     {
         var leftUpdateTime = File.GetLastWriteTimeUtc(left);
         var rightUpdateTime = File.GetLastWriteTimeUtc(right);
-        return leftUpdateTime != rightUpdateTime;
+        return leftUpdateTime == rightUpdateTime;
     }
 
     static bool IsFileUpdated(string path, SyncEntriesLeaf oldEntry)

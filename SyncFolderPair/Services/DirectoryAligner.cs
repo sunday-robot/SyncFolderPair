@@ -10,47 +10,16 @@ public static class DirectoryAligner
     /// 両方のディレクトリにあり、タイムスタンプが同じファイルについては何もしないし、その旨をユーザーに通知もしない。
     /// 両方のディレクトリにあり、タイムスタンプが異なる場合は、コピーなどはしないが、その旨をユーザーに通知する。
     /// </summary>
-    public static void Align(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    public static void Align(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignCore(
-            leftDirectoryPath,
-            rightDirectoryPath,
-            "",
-            ignoreEntries,
-            CreateDirectory,
-            (leftToRight, leftBaseDir, rightBaseDir, path) =>
-            {
-                CopyFile(leftToRight, leftBaseDir, rightBaseDir, path);
-                return true;
-            },
-            (leftToRight, _, _, path) =>
-            {
-                PrintSkipFile(leftToRight, path);
-                return true;
-            });
+        AlignDirectory(CreateDirectory, CopyFile, PrintSkipFile,
+            leftBase, rightBase, "", ignoreEntries);
     }
 
-    public static void CheckAlign(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    public static void CheckAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignCore(
-            leftDirectoryPath,
-            rightDirectoryPath,
-            "",
-            ignoreEntries,
-            (isLeft, _, path) =>
-            {
-                PrintCreateDirectory(isLeft, path);
-            },
-            (leftToRight, _, _, path) =>
-            {
-                PrintCopyFile(leftToRight, path);
-                return true;
-            },
-            (leftToRight, _, _, path) =>
-            {
-                PrintSkipFile(leftToRight, path);
-                return true;
-            });
+        AlignDirectory(PrintCreateDirectory, PrintCopyFile, PrintSkipFile,
+            leftBase, rightBase, "", ignoreEntries);
     }
 
     /// <summary>
@@ -58,149 +27,89 @@ public static class DirectoryAligner
     /// 両方のディレクトリにあり、タイムスタンプがも同じファイルについては何もしないし、その旨をユーザーに通知もしない。
     /// 両方のディレクトリにあり、タイムスタンプが異なる場合は、古い方のファイルをゴミ箱に移し、新しい方のファイルをもう型のウホディレクトリにコピーする。また、その旨をユーザーに通知する。
     /// </summary>
-    public static void ForceAlign(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    public static void ForceAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignCore(
-            leftDirectoryPath,
-            rightDirectoryPath,
-            "",
-            ignoreEntries,
-            CreateDirectory,
-            (leftToRight, leftBaseDir, rightBaseDir, path) =>  // ファイルをコピーする(上書きコピーではない)
-            {
-                CopyFile(leftToRight, leftBaseDir, rightBaseDir, path);
-                return true;
-            },
-            (leftToRight, leftBaseDir, rightBaseDir, path) =>  // ファイルを上書きコピーする
-            {
-                ReplaceFile(leftToRight, leftBaseDir, rightBaseDir, path);
-                return true;
-            });
+        AlignDirectory(CreateDirectory, CopyFile, ReplaceFile,
+            leftBase, rightBase, "", ignoreEntries);
     }
 
-    static bool AlignCore(
-        string leftBaseDir,
-        string rightBaseDir,
-        string path,
-        IgnoreEntries ignoreEntries,
+    static void AlignDirectory(
         Action<bool, string, string> createDirectory,
-        Func<bool, string, string, string, bool> copyFile,
-        Func<bool, string, string, string, bool> overwriteFile)
+        Action<bool, string, string, string> copyFile,
+        Action<bool, string, string, string> overwriteFile,
+        string leftBase,
+        string rightBase,
+        string path,
+        IgnoreEntries ignoreEntries)
     {
-        var leftDirectoryPath = Path.Combine(leftBaseDir, path);
-        var rightDirectoryPath = Path.Combine(rightBaseDir, path);
+        var left = Path.Combine(leftBase, path);
+        var right = Path.Combine(rightBase, path);
 
-        foreach (var e in EntryEnumerator.Enumerate(leftDirectoryPath, rightDirectoryPath, ignoreEntries))
+        foreach (var e in EntryEnumerator.Enumerate(left, right, ignoreEntries))
         {
             var name = e.Item1;
             var p = Path.Combine(path, name);
             switch (e.Item2)
             {
                 case PairEnumerator.Existance.OnlyLeft:
-                    // 左にしかない
-                    if (IsDirectory(leftDirectoryPath, name))
-                    {
-                        if (!CopyDirectory(true, leftBaseDir, rightBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
-                            return false;
-                    }
+                    if (IsDirectory(left, name))
+                        CopyDirectory(createDirectory, copyFile,    // 左にだけディレクトリがある
+                            true, leftBase, rightBase, p, ignoreEntries.GetSubEntries(name));
                     else
-                    {
-                        if (!copyFile(true, leftBaseDir, rightBaseDir, p))
-                            return false;
-                    }
+                        copyFile(true, leftBase, rightBase, p); // 左にだけファイルがある
                     break;
                 case PairEnumerator.Existance.Both:
                     // 左右両方にある
-                    if (IsDirectory(leftDirectoryPath, name))
-                    {
-                        if (IsDirectory(rightDirectoryPath, name))
-                        {
-                            // 左右両方ともディレクトリである
-                            if (!AlignCore(leftBaseDir, rightBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile, overwriteFile))
-                            {
-                                return false;
-                            }
-                        }
+                    if (IsDirectory(left, name))
+                        if (IsDirectory(right, name))
+                            AlignDirectory(createDirectory, copyFile, overwriteFile,    // 両方ともディレクトリである
+                                leftBase, rightBase, p, ignoreEntries.GetSubEntries(name));
                         else
-                        {
-                            // 左はディレクトリ、右はファイルである
-                            Console.WriteLine($"[!!!!] Left is directory {p}");
-                        }
-                    }
+                            Console.WriteLine($"[!!!!] Left is directory {p}"); // 左はディレクトリ、右はファイルである
                     else
-                    {
-                        if (IsDirectory(rightDirectoryPath, name))
-                        {
-                            // 左はファイル、右はディレクトリである
-                            Console.WriteLine($"[!!!!] Right is directory {p}");
-                        }
+                        if (IsDirectory(right, name))
+                            Console.WriteLine($"[!!!!] Right is directory {p}");    // 左はファイル、右はディレクトリである
                         else
                         {
-                            // 左右どちらもファイルである
-                            var leftUpdateTime = GetLastWriteTimeUtc(leftDirectoryPath, name);
-                            var rightUpdateTime = GetLastWriteTimeUtc(rightDirectoryPath, name);
-                            if (leftUpdateTime > rightUpdateTime)
-                            {
-                                if (!overwriteFile(true, leftDirectoryPath, rightDirectoryPath, p))
-                                    return false;
-                            }
-                            else if (leftUpdateTime < rightUpdateTime)
-                            {
-                                if (!overwriteFile(false, leftDirectoryPath, rightDirectoryPath, p))
-                                    return false;
-                            }
+                            var leftUpdateTime = GetLastWriteTimeUtc(left, name);
+                            var rightUpdateTime = GetLastWriteTimeUtc(right, name);
+                            overwriteFile(leftUpdateTime > rightUpdateTime, leftBase, rightBase, p);    // 左右どちらもファイルである
                         }
-                    }
                     break;
                 case PairEnumerator.Existance.OnlyRight:
-                    // 右にしかない
-                    if (IsDirectory(rightDirectoryPath, name))
-                    {
-                        if (!CopyDirectory(false, rightBaseDir, leftBaseDir, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
-                            return false;
-                    }
+                    if (IsDirectory(right, name))
+                        CopyDirectory(createDirectory, copyFile,    // 右にだけディレクトリがある
+                             false, rightBase, leftBase, p, ignoreEntries.GetSubEntries(name));
                     else
-                    {
-                        if (!copyFile(false, leftBaseDir, rightBaseDir, p))
-                            return false;
-                    }
+                        copyFile(false, leftBase, rightBase, p);    // 右にだけファイルがある
                     break;
             }
         }
-
-        return true;
     }
 
-    static bool CopyDirectory(
-        bool leftToRight,
-        string sourceBaseDirectoryPath,
-        string destinationBaseDirectoryPath,
-        string relativePath,
-        IgnoreEntries ignoreEntries,
+    static void CopyDirectory(
         Action<bool, string, string> createDirectory,
-        Func<bool, string, string, string, bool> copyFile)
+        Action<bool, string, string, string> copyFile,
+        bool leftToRight,
+        string srcBase,
+        string destBase,
+        string path,
+        IgnoreEntries ignoreEntries)
     {
-        var sourceDirectoryPath = Path.Combine(sourceBaseDirectoryPath, Path.Combine(relativePath));
-
-        createDirectory(!leftToRight, destinationBaseDirectoryPath, relativePath);
-        foreach (var name in EntryEnumerator.Enumerate(sourceDirectoryPath, ignoreEntries))
+        var src = Path.Combine(srcBase, Path.Combine(path));
+        createDirectory(!leftToRight, destBase, path);
+        foreach (var name in EntryEnumerator.Enumerate(src, ignoreEntries))
         {
-            var p = Path.Combine(relativePath, name);
-            if (IsDirectory(sourceDirectoryPath, name))
-            {
-                if (!CopyDirectory(leftToRight, sourceBaseDirectoryPath, destinationBaseDirectoryPath, p, ignoreEntries.GetSubEntries(name), createDirectory, copyFile))
-                    return false;
-            }
+            var p = Path.Combine(path, name);
+            if (IsDirectory(src, name))
+                CopyDirectory(createDirectory, copyFile,
+                    leftToRight, srcBase, destBase, p, ignoreEntries.GetSubEntries(name));
             else
-            {
-                if (!copyFile(leftToRight, sourceBaseDirectoryPath, destinationBaseDirectoryPath, p))
-                    return false;
-            }
+                copyFile(leftToRight, srcBase, destBase, p);
         }
-        return true;
     }
 
-    static void PrintCreateDirectory(bool isLeft, string path)
+    static void PrintCreateDirectory(bool isLeft, string _, string path)
     {
         if (isLeft)
             Console.WriteLine($"[<     MKDIR] {path}");
@@ -208,7 +117,7 @@ public static class DirectoryAligner
             Console.WriteLine($"[MKDIR     >] {path}");
     }
 
-    static void PrintCopyFile(bool leftToRight, string path)
+    static void PrintCopyFile(bool leftToRight, string _, string __, string path)
     {
         if (leftToRight)
             Console.WriteLine($"[COPY      >] {path}");
@@ -216,7 +125,7 @@ public static class DirectoryAligner
             Console.WriteLine($"[<      COPY] {path}");
     }
 
-    static void PrintSkipFile(bool leftToRight, string path)
+    static void PrintSkipFile(bool leftToRight, string _, string __, string path)
     {
         if (leftToRight)
             Console.WriteLine($"[SKIP      >] {path}");
@@ -224,26 +133,16 @@ public static class DirectoryAligner
             Console.WriteLine($"[<      SKIP] {path}");
     }
 
-    static void PrintOverwriteFile(bool leftToRight, string path)
-    {
-        if (leftToRight)
-            Console.WriteLine($"[OVERWRITE >] {path}");
-        else
-            Console.WriteLine($"[< OVERWRITE] {path}");
-    }
-
     static void CreateDirectory(bool isLeft, string baseDir, string path)
     {
-        PrintCreateDirectory(isLeft, path);
-
+        PrintCreateDirectory(isLeft, "", path);
         var p = Path.Combine(baseDir, path);
         Directory.CreateDirectory(p);
     }
 
     static void CopyFile(bool leftToRight, string leftBase, string rightBase, string path)
     {
-        PrintCopyFile(leftToRight, path);
-
+        PrintCopyFile(leftToRight, "", "", path);
         var left = Path.Combine(leftBase, path);
         var right = Path.Combine(rightBase, path);
         if (leftToRight)
@@ -252,23 +151,16 @@ public static class DirectoryAligner
             File.Copy(right, left, false);
     }
 
-    static void ReplaceFile(bool leftToRight, string leftBaseDirectory, string rightBaseDirectory, string path)
+    static void ReplaceFile(bool leftToRight, string leftBase, string rightBase, string path)
     {
-        PrintOverwriteFile(leftToRight, path);
-
-        string src;
-        string dest;
         if (leftToRight)
-        {
-            src = Path.Combine(leftBaseDirectory, path);
-            dest = Path.Combine(rightBaseDirectory, path);
-        }
+            Console.WriteLine($"[OVERWRITE >] {path}");
         else
-        {
-            src = Path.Combine(rightBaseDirectory, path);
-            dest = Path.Combine(leftBaseDirectory, path);
-        }
+            Console.WriteLine($"[< OVERWRITE] {path}");
 
+        var (srcBase, destBase) = leftToRight ? (leftBase, rightBase) : (rightBase, leftBase);
+        var src = Path.Combine(srcBase, path);
+        var dest = Path.Combine(destBase, path);
         FileUtils.ReplaceFile(src, dest);
     }
 
