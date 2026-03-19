@@ -18,7 +18,7 @@ public static class DirectoryDifferencePrinter
             {
                 Console.WriteLine($"[ << ] {rel}");
             },
-            (rel, _, _) => { },    // サイズ、タイムスタンプが同じ場合は何もしない
+            (rel, _, _) => { },    // タイムスタンプが同じ場合は何もしない
             (rel, _, _) =>
             {
                 Console.WriteLine($"[ >> ] {rel}");

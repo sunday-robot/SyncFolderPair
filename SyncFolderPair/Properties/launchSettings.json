@@ -52,6 +52,11 @@
       "commandName": "Project",
       "commandLineArgs": "delete test_pair\r\n"
     },
+
+    "add wd30movie": {
+      "commandName": "Project",
+      "commandLineArgs": "add wd30movie J:\\movie K:\\movie"
+    },
     "align wd30movie check": {
       "commandName": "Project",
       "commandLineArgs": "align wd30movie check"
@@ -64,7 +69,15 @@
       "commandName": "Project",
       "commandLineArgs": "init wd30movie"
     },
-    "add st4000dm": {
+    "sync ws30movie check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd30movie check"
+    },
+    "sync ws30movie": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd30movie"
+    },
+    "add st4000movie": {
       "commandName": "Project",
       "commandLineArgs": "add st4000movie H:\\movie I:\\movie"
     },
@@ -76,13 +89,17 @@
       "commandName": "Project",
       "commandLineArgs": "align st4000movie"
     },
-    "sync ws30movie check": {
+    "init st4000movie": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd30movie check"
+      "commandLineArgs": "init st4000movie"
     },
-    "sync ws30movie": {
+    "sync st4000movie check": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd30movie"
+      "commandLineArgs": "sync st4000movie check"
+    },
+    "sync st4000movie": {
+      "commandName": "Project",
+      "commandLineArgs": "sync st4000movie"
     },
     "add wd60movie": {
       "commandName": "Project",

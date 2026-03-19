@@ -6,12 +6,12 @@ namespace SyncFolderPair.Utils
 {
     public static class FileUtils
     {
-        public static long GetSize(string filePath)
-        {
-            var info = new FileInfo(filePath)!;
-            var size = info.Length;
-            return size;
-        }
+        //public static long GetSize(string filePath)
+        //{
+        //    var info = new FileInfo(filePath)!;
+        //    var size = info.Length;
+        //    return size;
+        //}
 
         /// <summary>
         /// dest側にあるファイルをゴミ箱に移動してから、source側のファイルをコピーする

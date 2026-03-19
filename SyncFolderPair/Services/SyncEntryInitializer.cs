@@ -51,7 +51,7 @@ public static class SyncEntryInitializer
                     errorOccurred = true;
                     continue;
                 }
-                directorySyncEntry.Nodes[name] = childEntries;
+                directorySyncEntry.Add(name, childEntries);
             }
             else
             {
@@ -67,7 +67,7 @@ public static class SyncEntryInitializer
                 var r = FileComparator.Compare(leftPath, rightPath);
                 if (r is not FileCompareResult.Same same)
                 {
-                    // エラー。異なるファイル(更新日時が異なる、またはサイズが異なる)
+                    // エラー。異なるファイル(更新日時が異なる)
                     switch (r)
                     {
                         case FileCompareResult.LeftIsNewer a:
@@ -76,16 +76,13 @@ public static class SyncEntryInitializer
                         case FileCompareResult.RightIsNewer a:
                             Console.WriteLine($"Right is newer : {leftPath} , {rightPath} (left: {a.Left}, right: {a.Right})");
                             break;
-                        case FileCompareResult.InconsistentSize a:
-                            Console.WriteLine($"Inconsistent size : {leftPath} , {rightPath} (last write time: {a.LeftLastWriteTimeUtc}, left size: {a.Left}, right size: {a.Right})");
-                            break;
                         default:
                             throw new UnreachableException();
                     }
                     errorOccurred = true;
                     continue;
                 }
-                directorySyncEntry.Nodes[name] = new SyncEntriesLeaf(same.LastWriteTimeUtc, same.Length);
+                directorySyncEntry.Add(name, new SyncEntriesLeaf(same.LastWriteTimeUtc));
             }
         }
         if (errorOccurred)
