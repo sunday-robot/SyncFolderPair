@@ -9,19 +9,20 @@ MSのフリーソフトSyncToysというアプリを使っていたが、不要�
 
 実装も極力安全な処理を行うように気を付けている。
 
-現時点では、まだ二つのフォルダの控えめな同期処理しか実現できていない。
-
-片方のディレクトリでファイルが削除されていたら、もう片方のディレクトリからも削除するという機能はまだ実装できていない。
-
 # Usage
 
+SyncFolderPair add <pair name> <left folder> <right folder>
+SyncFolderPair delete <pair name>
+SyncFolderPair list
+SyncFolderPair add_ignore <pair name> <relative path>...
+SyncFolderPair align <pair name> [force|check]
+SyncFolderPair init <pair name>
+SyncFolderPair sync <pair name> [check]
+SyncFolderPair diff <left folder> <right folder>
 SyncFolderPair <commnad> <arguments>...
-command:
-	sync    : 二つのフォルダを同期する
-	help    : ヘルプを表示する
 
-# syncコマンド仕様
-
+## add <pair name> <left folder> <right folder>
+フォルダペアを新規追加する。
 
 # 設計
 
