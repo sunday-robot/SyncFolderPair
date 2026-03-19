@@ -73,7 +73,9 @@ public static class DirectoryAligner
                         {
                             var leftUpdateTime = GetLastWriteTimeUtc(left, name);
                             var rightUpdateTime = GetLastWriteTimeUtc(right, name);
-                            overwriteFile(leftUpdateTime > rightUpdateTime, leftBase, rightBase, p);    // 左右どちらもファイルである
+                            if (leftUpdateTime != rightUpdateTime)
+                                overwriteFile(leftUpdateTime > rightUpdateTime, leftBase, rightBase, p);    // 新しいファイルで古いほうのファイルを更新する
+                            // 更新日時が同じファイルに対しては何もしない
                         }
                     break;
                 case PairEnumerator.Existance.OnlyRight:
