@@ -48,9 +48,17 @@
       "commandName": "Project",
       "commandLineArgs": "init test_pair"
     },
+    "delete test pair": {
+      "commandName": "Project",
+      "commandLineArgs": "delete test_pair\r\n"
+    },
     "align wd30movie check": {
       "commandName": "Project",
       "commandLineArgs": "align wd30movie check"
+    },
+    "align wd30movie": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd30movie"
     },
     "init ws30movie": {
       "commandName": "Project",
@@ -58,15 +66,15 @@
     },
     "add st4000dm": {
       "commandName": "Project",
-      "commandLineArgs": "add st4000dmmovie H:\\movie I:\\movie"
+      "commandLineArgs": "add st4000movie H:\\movie I:\\movie"
     },
-    "delete test pair": {
+    "align st4000movie check": {
       "commandName": "Project",
-      "commandLineArgs": "delete test_pair\r\n"
+      "commandLineArgs": "align st4000movie check"
     },
-    "align st4000dmmovie check": {
+    "align st4000movie": {
       "commandName": "Project",
-      "commandLineArgs": "align st4000dmmovie check"
+      "commandLineArgs": "align st4000movie"
     },
     "sync ws30movie check": {
       "commandName": "Project",
@@ -76,25 +84,25 @@
       "commandName": "Project",
       "commandLineArgs": "sync wd30movie"
     },
-    "align ws60movie check": {
-      "commandName": "Project",
-      "commandLineArgs": "align wd60ezatmovie check"
-    },
     "add wd60movie": {
       "commandName": "Project",
-      "commandLineArgs": "add wd60ezatmovie E:\\movie G:\\movie"
+      "commandLineArgs": "add wd60movie E:\\movie G:\\movie"
     },
-    "init ws60movie": {
+    "align ws60movie check": {
       "commandName": "Project",
-      "commandLineArgs": "init wd60ezatmovie"
+      "commandLineArgs": "align wd60movie check"
     },
     "align wd60movie": {
       "commandName": "Project",
-      "commandLineArgs": "align wd60ezatmovie"
+      "commandLineArgs": "align wd60movie"
+    },
+    "init ws60movie": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd60movie"
     },
     "sync wd60 check": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd60ezatmovie check"
+      "commandLineArgs": "sync wd60movie check"
     }
   }
 }
