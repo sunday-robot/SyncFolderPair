@@ -360,7 +360,7 @@ public static class DirectorySynchronizer
     static bool IsDirectory(string path, string entryName) => Directory.Exists(Path.Combine(path, entryName));
 
     /// <summary>
-    /// ディレクトリ内に、更新されたファイルがあるかどうかを返す。
+    /// ディレクトリが更新(ディレクトリ内に新規にディレクトリ、ファイルが作成された、ディレクトリ内のファイルが更新された)かどうかを返す。
     /// </summary>
     /// <param name="path"></param>
     /// <param name="ignoreEntries"></param>
@@ -378,27 +378,19 @@ public static class DirectorySynchronizer
                     return true;    // ファイルまたはディレクトリが新規作成された
                 case SyncEntries entries:
                     if (!Directory.Exists(p))
-                    {
-                        return true;    // 以前はディレクトリだったのに、ファイルに変わっている
-                    }
+                        return true;    // ディレクトリが削除され、ファイルが作成された
                     if (IsDirectoryUpdated(p, ignoreEntries.GetSubEntries(name), entries))
-                    {
-                        return true;
-                    }
+                        return true;    // サブディレクトリが更新された
                     break;
                 case SyncEntriesLeaf leaf:
                     if (Directory.Exists(p))
-                    {
-                        return true;    // 以前はファイルだったのに、ディレクトリに変わっている
-                    }
+                        return true;    // ファイルが削除され、ディレクトリが作成された
                     if (IsFileUpdated(path, leaf))
-                    {
-                        return true;
-                    }
+                        return true;    // ファイルが更新された
                     break;
             }
         }
-        return false;
+        return false;   // ディレクトリは更新されていない
     }
 
     static bool IsSameFile(string left, string right)
@@ -416,22 +408,17 @@ public static class DirectorySynchronizer
 
     /// <summary>
     /// ディレクトリをコピーする<br/>
-    /// 
     /// </summary>
-    /// <param name="sourceDirectoryPath"></param>
-    /// <param name="destinationDirectoryPath"></param>
-    /// <param name="ignoreEntries"></param>
-    /// <returns>コピーしたエントリー(ファイル、ディレクトリ)の情報</returns>
-    /// <exception cref="NotImplementedException"></exception>
+    /// <returns>コピーしたディレクトリの情報</returns>
     static SyncEntries CopyDirectory(
         Action<bool, string, string> createDirectory,
         Func<bool, string, string, string, SyncEntriesNode> copyFile,
         bool leftToRight, string leftBase, string rightBase, string path, IgnoreEntries ignoreEntries)
     {
         var newEntries = new SyncEntries();
-        var srcBase = leftToRight ? leftBase : rightBase;
+        var (srcBase, destBase) = GetSrcDest(leftToRight, leftBase, rightBase);
         var src = Path.Combine(srcBase, path);
-        createDirectory(!leftToRight, srcBase, path);
+        createDirectory(!leftToRight, destBase, path);
         foreach (var name in EntryEnumerator.Enumerate(src, ignoreEntries))
         {
             var p = Path.Combine(path, name);
