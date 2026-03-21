@@ -525,8 +525,8 @@ public static class DirectorySynchronizer
     static void PrintMessage(string operation, bool leftToRight, string path)
     {
         if (leftToRight)
-            Console.WriteLine($"[{operation,11}>] {path}");
+            Console.WriteLine($"[{operation,10}>] {path}");
         else
-            Console.WriteLine($"[<{operation,-11}] {path}");
+            Console.WriteLine($"[<{operation,-10}] {path}");
     }
 }
