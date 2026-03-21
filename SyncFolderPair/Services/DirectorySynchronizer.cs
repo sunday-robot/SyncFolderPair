@@ -109,7 +109,7 @@ public static class DirectorySynchronizer
                             // 左はファイル、右はディレクトリである
                             SynchronizeDirectoryAndFile(
                                 createDirectory, deleteEmptyDirectory, copyFile, deleteFile,
-                                false, leftBase, rightBase, path, name, ignoreEntries, oldEntry,
+                                false, rightBase, leftBase, path, name, ignoreEntries, oldEntry,
                                 newSyncEntries);
                         }
                         else
@@ -126,7 +126,7 @@ public static class DirectorySynchronizer
                     // 右にしかない
                     SynchronizeOrphanEntry(
                         createDirectory, deleteEmptyDirectory, copyFile, deleteFile,
-                        false, leftBase, rightBase, path, name, ignoreEntries, oldEntry,
+                        false, rightBase, leftBase, path, name, ignoreEntries, oldEntry,
                         newSyncEntries);
                     break;
             }
@@ -145,19 +145,17 @@ public static class DirectorySynchronizer
         Func<bool, string, string, string, SyncEntriesNode> copyFile,
         Action<bool, string, string> deleteFile,
         bool isLeftOrphan,
-        string leftBase,
-        string rightBase,
+        string orphanBase,
+        string missingBase,
         string path,
         string name,
         IgnoreEntries ignoreEntries,
         SyncEntriesNode? oldEntry,
         SyncEntries newSyncEntries)
     {
-        var (orphanBase, missingBase) = GetSrcDest(isLeftOrphan, leftBase, rightBase);
         var p = Path.Combine(path, name);
-        var left = Path.Combine(leftBase, p);
-        var right = Path.Combine(rightBase, p);
-        var (orphan, missing) = GetSrcDest(isLeftOrphan, left, right);
+        var orphan = Path.Combine(orphanBase, p);
+        var missing = Path.Combine(missingBase, p);
 
         if (Directory.Exists(orphan))
         {
@@ -180,7 +178,7 @@ public static class DirectorySynchronizer
                 default: // null, SyncEntriesLeaf
                     // ディレクトリが新規作成された
                     // あるいは、特殊運用。両方からファイルが削除され、一方にディレクトリが新規作成された
-                    newSyncEntries.Add(name, CopyDirectory(createDirectory, copyFile, isLeftOrphan, leftBase, rightBase, p, ie));
+                    newSyncEntries.Add(name, CopyDirectory(createDirectory, copyFile, isLeftOrphan, orphanBase, missingBase, p, ie, ""));
                     break;
             }
         }
@@ -203,7 +201,7 @@ public static class DirectorySynchronizer
                 default:    // null or SyncEntries
                     // ファイルが新規作成された
                     // あるいは、特殊運用。両方からディレクトリが削除され、一方にファイルが新規作成された
-                    newSyncEntries.Add(name, copyFile(isLeftOrphan, leftBase, rightBase, Path.Combine(path, name)));
+                    newSyncEntries.Add(name, copyFile(isLeftOrphan, orphanBase, missingBase, Path.Combine(path, name)));
                     break;
             }
         }
@@ -219,8 +217,8 @@ public static class DirectorySynchronizer
         Func<bool, string, string, string, SyncEntriesNode> copyFile,
         Action<bool, string, string> deleteFile,
         bool isLeftDirectory,
-        string leftBase,
-        string rightBase,
+        string dirBase,
+        string fileBase,
         string path,
         string name,
         IgnoreEntries ignoreEntries,
@@ -234,11 +232,10 @@ public static class DirectorySynchronizer
             return;
         }
 
-        var (directoryBase, fileBase) = GetSrcDest(isLeftDirectory, leftBase, rightBase);
         switch (oldEntry)
         {
             case SyncEntries entries:
-                var directoryPath = Path.Combine(directoryBase, path, name);
+                var directoryPath = Path.Combine(dirBase, path, name);
                 if (IsDirectoryUpdated(directoryPath, ignoreEntries.GetSubEntries(name), entries))
                 {
                     // 運用ミス。一方ではディレクトリが削除され、同名のファイルが作成されたのに、もう一方ではディレクトリが更新されている
@@ -251,8 +248,8 @@ public static class DirectorySynchronizer
                 }
                 // 特殊運用。ディレクトリが削除され、同名のファイルが作成された
                 DeleteDirectory(deleteFile, deleteEmptyDirectory,
-                    isLeftDirectory, directoryBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name));
-                newSyncEntries.Add(name, copyFile(!isLeftDirectory, leftBase, rightBase, Path.Combine(path, name)));
+                    isLeftDirectory, dirBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name));
+                newSyncEntries.Add(name, copyFile(!isLeftDirectory, fileBase, dirBase, Path.Combine(path, name)));
                 break;
             case SyncEntriesLeaf leaf:
                 var filePath = Path.Combine(fileBase, path, name);
@@ -270,7 +267,7 @@ public static class DirectorySynchronizer
                 deleteFile(isLeftDirectory, fileBase,
                     Path.Combine(path, name));
                 newSyncEntries.Add(name, CopyDirectory(createDirectory, copyFile,
-                    isLeftDirectory, leftBase, rightBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name)));
+                    isLeftDirectory, dirBase, fileBase, Path.Combine(path, name), ignoreEntries.GetSubEntries(name), ""));
                 break;
         }
     }
@@ -338,7 +335,7 @@ public static class DirectorySynchronizer
                         return;
                     }
                     // 右のファイルが更新された
-                    newSyncEntries.Add(name, replaceFile(false, leftBase, rightBase, p));
+                    newSyncEntries.Add(name, replaceFile(false, rightBase, leftBase, p));
                 }
                 else
                 {
@@ -413,19 +410,18 @@ public static class DirectorySynchronizer
     static SyncEntries CopyDirectory(
         Action<bool, string, string> createDirectory,
         Func<bool, string, string, string, SyncEntriesNode> copyFile,
-        bool leftToRight, string leftBase, string rightBase, string path, IgnoreEntries ignoreEntries)
+        bool leftToRight, string srcBase, string destBase, string path, IgnoreEntries ignoreEntries, string _)
     {
         var newEntries = new SyncEntries();
-        var (srcBase, destBase) = GetSrcDest(leftToRight, leftBase, rightBase);
         var src = Path.Combine(srcBase, path);
         createDirectory(!leftToRight, destBase, path);
         foreach (var name in EntryEnumerator.Enumerate(src, ignoreEntries))
         {
             var p = Path.Combine(path, name);
             if (IsDirectory(src, name))
-                newEntries.Add(name, CopyDirectory(createDirectory, copyFile, leftToRight, leftBase, rightBase, p, ignoreEntries.GetSubEntries(name)));
+                newEntries.Add(name, CopyDirectory(createDirectory, copyFile, leftToRight, srcBase, destBase, p, ignoreEntries.GetSubEntries(name), ""));
             else
-                newEntries.Add(name, copyFile(leftToRight, leftBase, rightBase, p));
+                newEntries.Add(name, copyFile(leftToRight, srcBase, destBase, p));
         }
         return newEntries;
     }
@@ -502,59 +498,47 @@ public static class DirectorySynchronizer
         }
     }
 
-    static SyncEntriesLeaf PrintCopyFile(bool leftToRight, string _, string __, string path)
+    static void PrintMessage(string operation, bool leftToRight, string path)
     {
         if (leftToRight)
-            Console.WriteLine($"[COPY    >] {path}");
+            Console.WriteLine($"[{operation,10}>] {path}");
         else
-            Console.WriteLine($"[<    COPY] {path}");
+            Console.WriteLine($"[<{operation,-10}] {path}");
+    }
+
+    static SyncEntriesLeaf PrintCopyFile(bool leftToRight, string _, string __, string path)
+    {
+        PrintMessage("COPY", leftToRight, path);
         return _dummySyncEntriesLeaf;
     }
 
-    static SyncEntriesLeaf CopyFile(bool leftToRight, string leftBase, string rightBase, string path)
+    static SyncEntriesLeaf CopyFile(bool leftToRight, string srcBase, string destBase, string path)
     {
-        PrintCopyFile(leftToRight, leftBase, rightBase, path);
-        var (src, dest) = GetSrcDest(leftToRight, Path.Combine(leftBase, path), Path.Combine(rightBase, path));
-        File.Copy(src, dest, false);
+        PrintCopyFile(leftToRight, "", "", path);
+        var src = Path.Combine(srcBase, path);
+        File.Copy(src, Path.Combine(destBase, path), false);
         return CreateSyncEntriesLeaf(src);
     }
 
     static SyncEntriesLeaf PrintReplaceFile(bool leftToRight, string _, string __, string path)
     {
-        if (leftToRight)
-            Console.WriteLine($"[REPLACE >] {path}");
-        else
-            Console.WriteLine($"[< REPLACE] {path}");
+        PrintMessage("REPLACE", leftToRight, path);
         return _dummySyncEntriesLeaf;
     }
 
-    private static SyncEntriesLeaf ReplaceFile(bool leftToRight, string leftBase, string rightBase, string path)
+    private static SyncEntriesLeaf ReplaceFile(bool leftToRight, string srcBase, string destBase, string path)
     {
-        PrintReplaceFile(leftToRight, leftBase, rightBase, path);
-        var (src, dest) = GetSrcDest(leftToRight, Path.Combine(leftBase, path), Path.Combine(rightBase, path));
-        FileUtils.ReplaceFile(src, dest);
+        PrintReplaceFile(leftToRight, "", "", path);
+        var src = Path.Combine(srcBase, path);
+        FileUtils.ReplaceFile(src, Path.Combine(destBase, path));
         return CreateSyncEntriesLeaf(src);
     }
 
-    static void PrintDeleteFile(bool isLeft, string _, string path)
-    {
-        if (isLeft)
-            Console.WriteLine($"[< DELETE] {path}");
-        else
-            Console.WriteLine($"[DELETE >] {path}");
-    }
+    static void PrintDeleteFile(bool isLeft, string _, string path) => PrintMessage("DELETE", isLeft, path);
 
     static void DeleteFile(bool isLeft, string basePath, string path)
     {
         PrintDeleteFile(isLeft, basePath, path);
         RecycleBin.MoveToRecycleBin(Path.Combine(basePath, path));
-    }
-
-    static (string src, string dest) GetSrcDest(bool leftToRight, string leftPath, string rightPath)
-    {
-        if (leftToRight)
-            return (leftPath, rightPath);
-        else
-            return (rightPath, leftPath);
     }
 }

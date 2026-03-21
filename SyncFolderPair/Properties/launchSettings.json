@@ -52,7 +52,10 @@
       "commandName": "Project",
       "commandLineArgs": "delete test_pair\r\n"
     },
-
+    "WD30____________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
     "add wd30movie": {
       "commandName": "Project",
       "commandLineArgs": "add wd30movie J:\\movie K:\\movie"
@@ -76,6 +79,10 @@
     "sync ws30movie": {
       "commandName": "Project",
       "commandLineArgs": "sync wd30movie"
+    },
+    "ST4000____________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
     },
     "add st4000movie": {
       "commandName": "Project",
@@ -101,6 +108,10 @@
       "commandName": "Project",
       "commandLineArgs": "sync st4000movie"
     },
+    "WD60____________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
     "add wd60movie": {
       "commandName": "Project",
       "commandLineArgs": "add wd60movie E:\\movie G:\\movie"
@@ -120,6 +131,90 @@
     "sync wd60 check": {
       "commandName": "Project",
       "commandLineArgs": "sync wd60movie check"
+    },
+    "WD80____________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
+    "add wd80movie": {
+      "commandName": "Project",
+      "commandLineArgs": "add wd80movie M:\\movie L:\\movie"
+    },
+    "align ws80movie check": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80movie check"
+    },
+    "align wd80movie": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80movie"
+    },
+    "init ws80movie": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd80movie"
+    },
+    "sync wd80 check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80movie check"
+    },
+    "sync wd80": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80movie"
+    },
+    "WD80_work___________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
+    "add wd80work": {
+      "commandName": "Project",
+      "commandLineArgs": "add wd80work M:\\work L:\\work"
+    },
+    "align ws80work check": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80work check"
+    },
+    "align wd80work": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80work"
+    },
+    "init ws80work": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd80work"
+    },
+    "sync wd80work check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80work check"
+    },
+    "sync wd80work": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80work"
+    },
+    "WD80_work2___________": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
+    "add wd80work2": {
+      "commandName": "Project",
+      "commandLineArgs": "add wd80work2 M:\\work2 L:\\work2"
+    },
+    "align ws80work2 check": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80work2 check"
+    },
+    "align wd80work2": {
+      "commandName": "Project",
+      "commandLineArgs": "align wd80work2"
+    },
+    "init ws80work2": {
+      "commandName": "Project",
+      "commandLineArgs": "init wd80work2"
+    },
+    "sync wd80work2 check": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80work2 check"
+    },
+    "sync wd80work2": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd80work2"
     }
   }
 }
