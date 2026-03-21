@@ -462,13 +462,7 @@ public static class DirectorySynchronizer
         deleteEmptyDirectory(isLeft, basePath, path);
     }
 
-    static void PrintCreateDirectory(bool isLeft, string _, string path)
-    {
-        if (isLeft)
-            Console.WriteLine($"[CREATE  >] {path}");
-        else
-            Console.WriteLine($"[<  CREATE] {path}");
-    }
+    static void PrintCreateDirectory(bool isLeft, string _, string path) => PrintMessage("CREATE", !isLeft, path);
 
     static void CreateDirectory(bool isLeft, string basePath, string path)
     {
@@ -476,13 +470,7 @@ public static class DirectorySynchronizer
         Directory.CreateDirectory(Path.Combine(basePath, path));
     }
 
-    static void PrintDeleteEmptyDirectory(bool isLeft, string _, string path)
-    {
-        if (isLeft)
-            Console.WriteLine($"[< DELETE] {path}");
-        else
-            Console.WriteLine($"[DELETE >] {path}");
-    }
+    static void PrintDeleteEmptyDirectory(bool isLeft, string _, string path) => PrintMessage("DELETE", !isLeft, path);
 
     static void DeleteEmptyDirectory(bool isLeft, string basePath, string path)
     {
@@ -496,14 +484,6 @@ public static class DirectorySynchronizer
                 throw new Win32Exception(error);
             }
         }
-    }
-
-    static void PrintMessage(string operation, bool leftToRight, string path)
-    {
-        if (leftToRight)
-            Console.WriteLine($"[{operation,10}>] {path}");
-        else
-            Console.WriteLine($"[<{operation,-10}] {path}");
     }
 
     static SyncEntriesLeaf PrintCopyFile(bool leftToRight, string _, string __, string path)
@@ -534,11 +514,19 @@ public static class DirectorySynchronizer
         return CreateSyncEntriesLeaf(src);
     }
 
-    static void PrintDeleteFile(bool isLeft, string _, string path) => PrintMessage("DELETE", isLeft, path);
+    static void PrintDeleteFile(bool isLeft, string _, string path) => PrintMessage("DELETE", !isLeft, path);
 
     static void DeleteFile(bool isLeft, string basePath, string path)
     {
         PrintDeleteFile(isLeft, basePath, path);
         RecycleBin.MoveToRecycleBin(Path.Combine(basePath, path));
+    }
+
+    static void PrintMessage(string operation, bool leftToRight, string path)
+    {
+        if (leftToRight)
+            Console.WriteLine($"[{operation,11}>] {path}");
+        else
+            Console.WriteLine($"[<{operation,-11}] {path}");
     }
 }
