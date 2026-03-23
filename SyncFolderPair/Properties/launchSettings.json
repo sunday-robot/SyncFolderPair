@@ -132,6 +132,10 @@
       "commandName": "Project",
       "commandLineArgs": "sync wd60movie check"
     },
+    "sync wd60": {
+      "commandName": "Project",
+      "commandLineArgs": "sync wd60movie"
+    },
     "WD80____________": {
       "commandName": "Project",
       "commandLineArgs": ""

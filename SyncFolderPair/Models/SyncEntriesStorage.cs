@@ -8,11 +8,11 @@ public static class SyncEntriesStorage
 {
     const string _directoryName = "syncentries";
 
-    public static SyncEntries Get(string pairName)
+    public static SyncEntries? Get(string pairName)
     {
         var filePath = GetFilePath(pairName);
         if (!File.Exists(filePath))
-            return new SyncEntries();
+            return null;
 
         var json = File.ReadAllText(filePath);
         return JsonSerializer.Deserialize<SyncEntries>(json) ?? throw new Exception($"{filePath} is invalid.");
