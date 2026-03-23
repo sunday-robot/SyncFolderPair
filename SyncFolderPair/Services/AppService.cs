@@ -84,11 +84,7 @@ public static class AppService
     internal static void Synchronize(string pairName)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        var syncEntries = SyncEntriesStorage.Get(pairName);
-        if (syncEntries == null)
-        {
-            throw new Exception("Not initialized.");
-        }
+        var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
         syncEntries = DirectorySynchronizer.Synchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
@@ -96,11 +92,7 @@ public static class AppService
     internal static void CheckSynchronize(string pairName)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        var syncEntries = SyncEntriesStorage.Get(pairName);
-        if (syncEntries == null)
-        {
-            throw new Exception("Not initialized.");
-        }
+        var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
         DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
     }
 
