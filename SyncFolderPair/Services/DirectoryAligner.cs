@@ -74,12 +74,12 @@ public static class DirectoryAligner
                 case EntryPair.DirNone x:
                     createDirectory(false, rightBase, path);
                     AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.ChildrenEnumerable);
+                        leftBase, rightBase, p, x.Children);
                     break;
                 case EntryPair.NoneDir x:
                     createDirectory(true, leftBase, path);
                     AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.ChildrenEnumerable);
+                        leftBase, rightBase, p, x.Children);
                     break;
 
                 case EntryPair.FileNone:
@@ -91,7 +91,7 @@ public static class DirectoryAligner
 
                 case EntryPair.DirDir x:
                     AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.ChildrenEnumerable);
+                        leftBase, rightBase, p, x.Children);
                     break;
 
                 case EntryPair.FileFile x:

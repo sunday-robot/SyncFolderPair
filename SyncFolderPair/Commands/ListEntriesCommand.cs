@@ -29,16 +29,16 @@ public sealed class ListEntriesCommand : AbstractCommand
             switch (e)
             {
                 case EntryPair.NoneDir c:
-                    Print(path, c.ChildrenEnumerable);
+                    Print(path, c.Children);
                     break;
                 case EntryPair.NoneFile:
                     Console.WriteLine($"[  F] {path}");
                     break;
                 case EntryPair.DirNone c:
-                    Print(path, c.ChildrenEnumerable);
+                    Print(path, c.Children);
                     break;
                 case EntryPair.DirDir c:
-                    Print(path, c.ChildrenEnumerable);
+                    Print(path, c.Children);
                     break;
                 case EntryPair.DirFile:
                     Console.WriteLine($"[D F] {path}");

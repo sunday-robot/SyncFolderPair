@@ -22,7 +22,7 @@ public static class DifferentEntryEnumerator
             switch (e)
             {
                 case EntryPair.DirNone c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.ChildrenEnumerable));
+                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
                     break;
                 case EntryPair.FileNone:
                     yield return new DifferentEntryPair.FileNone(e.Name);
@@ -31,7 +31,7 @@ public static class DifferentEntryEnumerator
                     yield return new DifferentEntryPair.DirFile(e.Name);
                     break;
                 case EntryPair.DirDir c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.ChildrenEnumerable));
+                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
                     break;
                 case EntryPair.FileFile c:
                     {
@@ -45,7 +45,7 @@ public static class DifferentEntryEnumerator
                     yield return new DifferentEntryPair.FileDir(e.Name);
                     break;
                 case EntryPair.NoneDir c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.ChildrenEnumerable));
+                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
                     break;
                 case EntryPair.NoneFile:
                     yield return new DifferentEntryPair.NoneFile(e.Name);

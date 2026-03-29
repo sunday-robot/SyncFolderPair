@@ -56,7 +56,7 @@ public static class SyncEntryInitializer
 
                 case EntryPair.DirDir x:
                     // どちらもディレクトリ
-                    var childEntries = CreateSyncEntries(leftBasePath, rightBasePath, p, x.ChildrenEnumerable);
+                    var childEntries = CreateSyncEntries(leftBasePath, rightBasePath, p, x.Children);
                     if (childEntries == null)
                     {
                         errorOccurred = true;
