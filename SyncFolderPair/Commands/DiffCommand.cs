@@ -1,4 +1,5 @@
 ﻿using SyncFolderPair.Services;
+using SyncFolderPair.Types;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,8 +16,40 @@ public sealed class DiffCommand : AbstractCommand
         if (args.Length != 2)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.PrintDirectoryDifferences(args[0], args[1]);
+        Print("", AppService.EnumerateDifferentEntries(args[0], args[1]));
 
         return 0;
+    }
+
+    private static void Print(string path, IEnumerable<DifferentEntryPair> enumerable)
+    {
+        foreach (var e in enumerable)
+        {
+            var p = Path.Combine(path, e.Name);
+            switch (e)
+            {
+                case DifferentEntryPair.Dir dep:
+                    Print(p, dep.ChildrenEnumerable);
+                    break;
+                case DifferentEntryPair.FileNone:
+                    Console.WriteLine($"[<   ] {p}");
+                    break;
+                case DifferentEntryPair.NoneFile:
+                    Console.WriteLine($"[   >] {p}");
+                    break;
+                case DifferentEntryPair.DirFile:
+                    Console.WriteLine($"[D  F] {p}");
+                    break;
+                case DifferentEntryPair.FileDir:
+                    Console.WriteLine($"[F  D] {p}");
+                    break;
+                case DifferentEntryPair.Differ dep:
+                    if (dep.Left > dep.Right)
+                        Console.WriteLine($"[ << ] {p} {dep.Left} {dep.Right}");
+                    else if (dep.Left < dep.Right)
+                        Console.WriteLine($"[ >> ] {p} {dep.Left} {dep.Right}");
+                    break;
+            }
+        }
     }
 }

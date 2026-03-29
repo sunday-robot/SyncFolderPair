@@ -2,6 +2,7 @@
 
 using SyncFolderPair.Models;
 using SyncFolderPair.Types;
+using SyncFolderPair.Utils;
 using System.Text.RegularExpressions;
 
 namespace SyncFolderPair.Services;
@@ -96,9 +97,13 @@ public static class AppService
         DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
     }
 
-    public static void PrintDirectoryDifferences(string leftDirectory, string rightDirectory)
+    public static IEnumerable<DifferentEntryPair> EnumerateDifferentEntries(string leftDirectory, string rightDirectory)
     {
-        DirectoryDifferencePrinter.Print(leftDirectory, rightDirectory);
+        return DifferentEntryEnumerator.Enumerate(leftDirectory, rightDirectory);
     }
 
+    public static IEnumerable<EntryPair> EnumerateEntries(string leftDirectory, string rightDirectory)
+    {
+        return EntryPairs.Enumerate(leftDirectory, rightDirectory, path => null, new IgnoreEntries());
+    }
 }

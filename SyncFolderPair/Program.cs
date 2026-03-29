@@ -13,6 +13,7 @@ class Program
         new InitCommand(),
         new SyncCommand(),
         new DiffCommand(),
+        new ListEntriesCommand(),
     ];
 
     static int Main(string[] args)

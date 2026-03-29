@@ -16,7 +16,7 @@ public sealed record IgnoreEntries(IDictionary<string, IgnoreEntriesNode> Nodes)
 {
     static readonly char[] _PathSeparator = ['/', '\\'];
 
-    static readonly IgnoreEntries _empty = new IgnoreEntries();
+    static readonly IgnoreEntries _empty = new();
 
     public IgnoreEntries() : this(new Dictionary<string, IgnoreEntriesNode>(StringComparer.OrdinalIgnoreCase)) { }
 
@@ -32,7 +32,7 @@ public sealed record IgnoreEntries(IDictionary<string, IgnoreEntriesNode> Nodes)
     /// <param name="entryName"></param>
     /// <returns></returns>
     public bool Contains(string entryName)
-        => Nodes.TryGetValue(entryName, out var node) ? node is IgnoreEntriesLeaf : false;
+        => Nodes.TryGetValue(entryName, out var node) && node is IgnoreEntriesLeaf;
 
     public IgnoreEntries GetSubEntries(string entryName)
     {

@@ -2,6 +2,14 @@
 
 namespace SyncFolderPair.Types;
 
+// TODO 以下のほうが良い？
+public class SyncEntries2 : List<(string Name, SyncEntry Entry)>;
+public abstract record SyncEntry
+{
+    public record Directory(SyncEntries2 Entries) : SyncEntry;
+    public record File(DateTime LastWriteTimeUtc, long Size) : SyncEntry;
+}
+
 /// <summary>
 /// 派生クラスをきちんとシリアライズ/デシリアライズするための指定
 /// </summary>
@@ -14,15 +22,8 @@ public sealed record SyncEntriesLeaf(DateTime LastModifiedUtc) : SyncEntriesNode
 public sealed record SyncEntries(IDictionary<string, SyncEntriesNode> Nodes) : SyncEntriesNode
 {
     public SyncEntries() : this(new Dictionary<string, SyncEntriesNode>(StringComparer.OrdinalIgnoreCase)) { }
-    public SyncEntriesNode? Get(string name)
-    {
-        if (!Nodes.TryGetValue(name, out var node))
-            return null;
-        return node;
-    }
+    public SyncEntriesNode? Get(string name) => !Nodes.TryGetValue(name, out var node) ? null : node;
 
-    public void Add(string name, SyncEntriesNode node)
-    {
-        Nodes[name] = node;
-    }
+    // TODO 以下は、Setにして、引数がnullだったらセットせず、逆にあったら削除するようにしたほうが良いかも。
+    public void Add(string name, SyncEntriesNode node) => Nodes[name] = node;
 }

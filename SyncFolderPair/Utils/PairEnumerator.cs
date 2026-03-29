@@ -1,49 +1,29 @@
-﻿namespace SyncFolderPair.Utils
+﻿namespace SyncFolderPair.Utils;
+
+public static class PairEnumerator
 {
-    public static class PairEnumerator
+    public static IEnumerable<(T? Left, T? Right)> Enumerate<T>(IEnumerable<T> left, IEnumerable<T> right, Comparison<T> comparison)
     {
-        public enum Existance
-        {
-            OnlyLeft,
-            OnlyRight,
-            Both,
-        }
+        var leftArray = left.ToArray();
+        var rightArray = right.ToArray();
+        Array.Sort(leftArray, comparison);
+        Array.Sort(rightArray, comparison);
 
-        public static IEnumerable<(T, Existance)> Enumerate<T>(T[] leftArray, T[] rightArray, IComparer<T> comparator)
+        var li = 0;
+        var ri = 0;
+        while (li < leftArray.Length && ri < rightArray.Length)
         {
-            leftArray = [.. leftArray.OrderBy(x => x, comparator)];
-            rightArray = [.. rightArray.OrderBy(x => x, comparator)];
-
-            int li = 0;
-            int ri = 0;
-            while (li < leftArray.Length && ri < rightArray.Length)
-            {
-                int cmp = comparator.Compare(leftArray[li], rightArray[ri]);
-                if (cmp < 0)
-                {
-                    yield return (leftArray[li], Existance.OnlyLeft);
-                    li++;
-                }
-                else if (cmp == 0)
-                {
-                    yield return (leftArray[li], Existance.Both);
-                    li++;
-                    ri++;
-                }
-                else
-                {
-                    yield return (rightArray[ri], Existance.OnlyRight);
-                    ri++;
-                }
-            }
-            for (; li < leftArray.Length; li++)
-            {
-                yield return (leftArray[li], Existance.OnlyLeft);
-            }
-            for (; ri < rightArray.Length; ri++)
-            {
-                yield return (rightArray[ri], Existance.OnlyRight);
-            }
+            var cmp = comparison(leftArray[li], rightArray[ri]);
+            if (cmp < 0)
+                yield return (leftArray[li++], default);
+            else if (cmp == 0)
+                yield return (leftArray[li++], rightArray[ri++]);
+            else
+                yield return (default, rightArray[ri++]);
         }
+        while (li < leftArray.Length)
+            yield return (leftArray[li++], default);
+        while (ri < rightArray.Length)
+            yield return (default, rightArray[ri++]);
     }
 }

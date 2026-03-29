@@ -53,8 +53,7 @@
       "commandLineArgs": "delete test_pair\r\n"
     },
     "WD30____________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add wd30movie": {
       "commandName": "Project",
@@ -81,8 +80,7 @@
       "commandLineArgs": "sync wd30movie"
     },
     "ST4000____________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add st4000movie": {
       "commandName": "Project",
@@ -109,8 +107,7 @@
       "commandLineArgs": "sync st4000movie"
     },
     "WD60____________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add wd60movie": {
       "commandName": "Project",
@@ -137,8 +134,7 @@
       "commandLineArgs": "sync wd60movie"
     },
     "WD80____________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add wd80movie": {
       "commandName": "Project",
@@ -165,8 +161,7 @@
       "commandLineArgs": "sync wd80movie"
     },
     "WD80_work___________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add wd80work": {
       "commandName": "Project",
@@ -193,8 +188,7 @@
       "commandLineArgs": "sync wd80work"
     },
     "WD80_work2___________": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     },
     "add wd80work2": {
       "commandName": "Project",
@@ -219,6 +213,17 @@
     "sync wd80work2": {
       "commandName": "Project",
       "commandLineArgs": "sync wd80work2"
+    },
+    "______________": {
+      "commandName": "Project"
+    },
+    "diff": {
+      "commandName": "Project",
+      "commandLineArgs": "diff m:\\movie l:\\movie"
+    },
+    "list_entries": {
+      "commandName": "Project",
+      "commandLineArgs": "list_entries m:\\movie l:\\movie",
     }
   }
 }
