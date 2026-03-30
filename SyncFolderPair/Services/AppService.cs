@@ -45,27 +45,27 @@ public static class AppService
 
     public static void AddIgnoreDirectories(string pairName, Span<string> ignoreDirectoryPaths) => DirectoryPairStorage.AddIgnoreDirectoryPaths(pairName, ignoreDirectoryPaths);
 
-    public static void ForEachPair(Action<string, string, string, IgnoreEntries> action)
+    public static IEnumerable<(string, string, string, IgnoreEntries)> EnumeratePairs()
     {
-        DirectoryPairStorage.ForEach(action);
+        return DirectoryPairStorage.Enumerate();
     }
 
     public static void AlignDirectoryPair(string pairName)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        DirectoryAligner.Align(leftDirectory, rightDirectory, ignoreEntries);
+        DirectoryAligner.Align(false, leftDirectory, rightDirectory, ignoreEntries);
+    }
+
+    public static void ForceAlignDirectoryPair(string pairName)
+    {
+        var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
+        DirectoryAligner.Align(true, leftDirectory, rightDirectory, ignoreEntries);
     }
 
     public static void CheckAlignDirectoryPair(string pairName)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
         DirectoryAligner.CheckAlign(leftDirectory, rightDirectory, ignoreEntries);
-    }
-
-    public static void ForceAlignDirectoryPair(string pairName)
-    {
-        var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        DirectoryAligner.ForceAlign(leftDirectory, rightDirectory, ignoreEntries);
     }
 
     /// <summary>

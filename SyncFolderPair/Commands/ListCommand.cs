@@ -16,7 +16,7 @@ public sealed class ListCommand : AbstractCommand
         if (args.Length != 0)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.ForEachPair((name, left, right, ignoreDirectorySet) =>
+        foreach (var (name, left, right, ignoreDirectorySet) in AppService.EnumeratePairs())
         {
             Console.WriteLine($"{name}:");
             Console.WriteLine($"  left  : {left}");
@@ -24,7 +24,7 @@ public sealed class ListCommand : AbstractCommand
             Console.WriteLine($"  ignore directory:");
             PrintIgnoreEntries(ignoreDirectorySet, "    ");
             Console.WriteLine();
-        });
+        }
         return 0;
     }
 

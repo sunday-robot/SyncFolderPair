@@ -67,15 +67,15 @@ public static class DirectoryPairStorage
     }
 
     /// <summary>
-    /// 各フォルダペアに対し、指定されたActionを実行する。
+    /// フォルダペアを列挙する。
     /// </summary>
     /// <returns></returns>
-    public static void ForEach(Action<string, string, string, IgnoreEntries> action)
+    public static IEnumerable<(string, string, string, IgnoreEntries)> Enumerate()
     {
         var pairs = Load(GetFilePath());
         foreach (var pair in pairs)
         {
-            action(pair.Name, pair.LeftDirectory, pair.RightDirectory, pair.IgnoreDirectories);
+            yield return (pair.Name, pair.LeftDirectory, pair.RightDirectory, pair.IgnoreDirectories);
         }
     }
 

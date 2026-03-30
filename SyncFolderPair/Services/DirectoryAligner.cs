@@ -9,32 +9,23 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
     /// <summary>
     /// 片方のディレクトリにしかないファイルを、もう片方のディレクトリにコピーする。また、その旨をユーザーに通知する。
     /// 両方のディレクトリにあり、タイムスタンプが同じファイルについては何もしないし、その旨をユーザーに通知もしない。
-    /// 両方のディレクトリにあり、タイムスタンプが異なる場合は、コピーなどはしないが、その旨をユーザーに通知する。
+    /// 両方のディレクトリにあり、タイムスタンプが異なる場合は、forceModeか否かで処理が異なる：
+    /// forceModeの場合は、古い方のファイルをゴミ箱に移し、新しい方のファイルをもう型のウホディレクトリにコピーする。また、その旨をユーザーに通知する。
+    /// forceModeではない場合は、コピーなどはしないが、その旨をユーザーに通知する。
     /// </summary>
-    public static void Align(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
+    public static void Align(bool forceMode, string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
     {
-        var aligner = new Aligner(false, leftBase, rightBase);
+        var aligner = new Aligner(forceMode, leftDirectoryPath, rightDirectoryPath);
         aligner.Align(ignoreEntries);
     }
 
     /// <summary>
     /// 上のメソッドのファイルコピーなどを行わない版
     /// </summary>
-    public static void CheckAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
+    public static void CheckAlign(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
     {
-        var checker = new Checker(leftBase, rightBase);
+        var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
         checker.Align(ignoreEntries);
-    }
-
-    /// <summary>
-    /// 片方のディレクトリにしかないファイルを、もう片方のディレクトリにコピーする。また、その旨をユーザーに通知する。
-    /// 両方のディレクトリにあり、タイムスタンプがも同じファイルについては何もしないし、その旨をユーザーに通知もしない。
-    /// 両方のディレクトリにあり、タイムスタンプが異なる場合は、古い方のファイルをゴミ箱に移し、新しい方のファイルをもう型のウホディレクトリにコピーする。また、その旨をユーザーに通知する。
-    /// </summary>
-    public static void ForceAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
-    {
-        var aligner = new Aligner(true, leftBase, rightBase);
-        aligner.Align(ignoreEntries);
     }
     #endregion 公開staticメソッド群
 
@@ -63,7 +54,7 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
                 Console.WriteLine($"[!!!!] Left is directory, but right is file. {path}");
                 break;
             case EntryPair.FileDir:
-                Console.WriteLine($"[!!!!] Left is directory, but right is file. {path}");
+                Console.WriteLine($"[!!!!] Left is file, but right is directory. {path}");
                 break;
 
             case EntryPair.DirNone x:
@@ -139,7 +130,7 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
     (string Src, string Dest) GetSrcDest(bool leftToRight, string path)
     {
         var (srcBase, destBase) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
-        return (Path.Combine(srcBase, path), Path.Combine(srcBase, path));
+        return (Path.Combine(srcBase, path), Path.Combine(destBase, path));
     }
     #endregion 本来の抽象クラス定義
 

@@ -1,5 +1,6 @@
 ﻿using SyncFolderPair.Types;
 using SyncFolderPair.Utils;
+using System.Diagnostics;
 
 namespace SyncFolderPair.Services;
 
@@ -16,41 +17,42 @@ public static class DifferentEntryEnumerator
 
     static IEnumerable<DifferentEntryPair> Enumerate(string path, IEnumerable<EntryPair> entryPairEnumerable)
     {
-        foreach (var e in entryPairEnumerable)
+        foreach (var entryPair in entryPairEnumerable)
         {
-            var rel = Path.Combine(path, e.Name);
-            switch (e)
-            {
-                case EntryPair.DirNone c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
-                    break;
-                case EntryPair.FileNone:
-                    yield return new DifferentEntryPair.FileNone(e.Name);
-                    break;
-                case EntryPair.DirFile:
-                    yield return new DifferentEntryPair.DirFile(e.Name);
-                    break;
-                case EntryPair.DirDir c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
-                    break;
-                case EntryPair.FileFile c:
-                    {
-                        var left = (DateTime) c.Left!;
-                        var right = (DateTime) c.Right!;
-                        if (left != right)
-                            yield return new DifferentEntryPair.Differ(e.Name, left, right);
-                    }
-                    break;
-                case EntryPair.FileDir:
-                    yield return new DifferentEntryPair.FileDir(e.Name);
-                    break;
-                case EntryPair.NoneDir c:
-                    yield return new DifferentEntryPair.Dir(e.Name, Enumerate(rel, c.Children));
-                    break;
-                case EntryPair.NoneFile:
-                    yield return new DifferentEntryPair.NoneFile(e.Name);
-                    break;
-            }
+            var dep = CreateDifferentEntryPair(Path.Combine(path, entryPair.Name), entryPair);
+            if (dep != null)
+                yield return dep;
+        }
+    }
+
+    static DifferentEntryPair? CreateDifferentEntryPair(string path, EntryPair entryPair)
+    {
+        switch (entryPair)
+        {
+            case EntryPair.DirNone c:
+                return new DifferentEntryPair.Dir(entryPair.Name, Enumerate(path, c.Children));
+            case EntryPair.FileNone:
+                return new DifferentEntryPair.FileNone(entryPair.Name);
+            case EntryPair.DirFile:
+                return new DifferentEntryPair.DirFile(entryPair.Name);
+            case EntryPair.DirDir c:
+                return new DifferentEntryPair.Dir(entryPair.Name, Enumerate(path, c.Children));
+            case EntryPair.FileFile c:
+                {
+                    var left = (DateTime)c.Left!;
+                    var right = (DateTime)c.Right!;
+                    if (left != right)
+                        return new DifferentEntryPair.Differ(entryPair.Name, left, right);
+                    return null;
+                }
+            case EntryPair.FileDir:
+                return new DifferentEntryPair.FileDir(entryPair.Name);
+            case EntryPair.NoneDir c:
+                return new DifferentEntryPair.Dir(entryPair.Name, Enumerate(path, c.Children));
+            case EntryPair.NoneFile:
+                return new DifferentEntryPair.NoneFile(entryPair.Name);
+            default:
+                throw new UnreachableException();
         }
     }
 }

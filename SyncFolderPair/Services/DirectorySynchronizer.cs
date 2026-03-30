@@ -9,6 +9,7 @@ namespace SyncFolderPair.Services;
 
 public abstract class DirectorySynchronizer(string leftBasePath, string rightBasePath)
 {
+    #region 公開staticメソッド群
     /// <summary>
     /// 二つのディレクトリの更新内容を互いに反映する。
     /// </summary>
@@ -35,7 +36,9 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
         checker.Synchronize(ignoreEntries, oldSyncEntries);
     }
+    #endregion 公開staticメソッド群
 
+    #region 本来の抽象クラス定義
     static readonly SyncEntries _emptySyncEntries = [];
 
     readonly string _leftBasePath = leftBasePath;
@@ -348,11 +351,12 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         var (s, d) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
         return (Path.Combine(s, path), Path.Combine(d, path));
     }
+    #endregion 本来の抽象クラス定義
 
+    #region 派生クラス群
     public sealed class Synchronizer(string leftBasePath, string rightBasePath) : DirectorySynchronizer(leftBasePath, rightBasePath)
     {
         protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
-
         protected override void DeleteEmptyDirectory(string path)
         {
             if (!Win32.RemoveDirectory(path))
@@ -360,16 +364,11 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 // ディレクトリ削除失敗の理由が、ディレクトリが空でないためであれば、正常扱いとする(無視ディレクトリがあれば、ディレクトリが空にならないため)
                 int error = Marshal.GetLastWin32Error();
                 if (error != 145) // ERROR_DIR_NOT_EMPTY
-                {
                     throw new Win32Exception(error);
-                }
             }
         }
-
         protected override void CopyFile(string srcPath, string destPath) => File.Copy(srcPath, destPath, false);
-
         protected override void ReplaceFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
-
         protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
     }
 
@@ -381,4 +380,5 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         protected override void ReplaceFile(string srcPath, string destPath) { }
         protected override void DeleteFile(string path) { }
     }
+    #endregion 派生クラス群
 }

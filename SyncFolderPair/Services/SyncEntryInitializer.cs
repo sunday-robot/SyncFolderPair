@@ -17,15 +17,15 @@ public static class SyncEntryInitializer
     {
         var syncEntries = new SyncEntries();
         var errorOccurred = false;
-        foreach (var e in entryPairs)
+        foreach (var entryPair in entryPairs)
         {
-            var syncEntry = CreateSyncEntry(Path.Combine(path, e.Name), e);
+            var syncEntry = CreateSyncEntry(Path.Combine(path, entryPair.Name), entryPair);
             if (syncEntry == null)
             {
                 errorOccurred = true;
                 continue;
             }
-            syncEntries.Add(e.Name, syncEntry);
+            syncEntries.Add(entryPair.Name, syncEntry);
         }
         if (errorOccurred)
             return null;
@@ -58,7 +58,7 @@ public static class SyncEntryInitializer
 
             case EntryPair.DirDir x:
                 // どちらもディレクトリ
-                var newEntries = CreateSyncEntries(Path.Combine(path, x.Name), x.Children);
+                var newEntries = CreateSyncEntries(path, x.Children);
                 if (newEntries == null)
                     return null;
                 return new SyncEntryContent.Directory(newEntries);
