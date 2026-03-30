@@ -2,14 +2,21 @@
 
 namespace SyncFolderPair.Types;
 
+#if true
 // TODO 以下のほうが良い？
-public class SyncEntries2 : List<(string Name, SyncEntry Entry)>;
-public abstract record SyncEntry
+public class SyncEntries() : Dictionary<string, SyncEntryContent>(StringComparer.OrdinalIgnoreCase)
 {
-    public record Directory(SyncEntries2 Children) : SyncEntry;
-    public record File(DateTime LastWriteTimeUtc) : SyncEntry;
+    public SyncEntryContent? Get(string name) => !TryGetValue(name, out var content) ? null : content;
 }
 
+[JsonDerivedType(typeof(SyncEntryContent.Directory), nameof(SyncEntryContent.Directory))]
+[JsonDerivedType(typeof(SyncEntryContent.File), nameof(SyncEntryContent.File))]
+public abstract record SyncEntryContent
+{
+    public record Directory(SyncEntries Children) : SyncEntryContent;
+    public record File(DateTime LastWriteTimeUtc) : SyncEntryContent;
+}
+#else
 /// <summary>
 /// 派生クラスをきちんとシリアライズ/デシリアライズするための指定
 /// </summary>
@@ -26,3 +33,4 @@ public sealed record SyncEntries(IDictionary<string, SyncEntriesNode> Nodes) : S
 
     public void Add(string name, SyncEntriesNode node) => Nodes[name] = node;
 }
+#endif

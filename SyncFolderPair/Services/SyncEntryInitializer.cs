@@ -32,7 +32,7 @@ public static class SyncEntryInitializer
         return syncEntries;
     }
 
-    static SyncEntriesNode? CreateSyncEntry(string path, EntryPair entryPair)
+    static SyncEntryContent? CreateSyncEntry(string path, EntryPair entryPair)
     {
         switch (entryPair)
         {
@@ -58,7 +58,10 @@ public static class SyncEntryInitializer
 
             case EntryPair.DirDir x:
                 // どちらもディレクトリ
-                return CreateSyncEntries(Path.Combine(path, x.Name), x.Children);
+                var newEntries = CreateSyncEntries(Path.Combine(path, x.Name), x.Children);
+                if (newEntries == null)
+                    return null;
+                return new SyncEntryContent.Directory(newEntries);
 
             case EntryPair.FileFile x:
                 // どちらもファイル
@@ -73,7 +76,7 @@ public static class SyncEntryInitializer
                         Console.WriteLine($"Error: Right is newer : {path} (left: {lt}, right: {rt})");
                     return null;
                 }
-                return new SyncEntriesLeaf(lt);
+                return new SyncEntryContent.File(lt);
             default:
                 throw new UnreachableException();
         }
