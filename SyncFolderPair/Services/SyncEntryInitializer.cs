@@ -39,7 +39,7 @@ public static class SyncEntryInitializer
             case EntryPair.NoneDir:
             case EntryPair.NoneFile:
                 // エラー。右にしかない
-                Console.WriteLine($"Error: right only : {path}");
+                Console.WriteLine($"Error: Right only : {path}");
                 return null;
             case EntryPair.DirNone:
             case EntryPair.FileNone:
@@ -49,11 +49,11 @@ public static class SyncEntryInitializer
 
             case EntryPair.DirFile:
                 // エラー。左がディレクトリ、右がファイル
-                Console.WriteLine($"Error: left is directory, right is file : {path}");
+                Console.WriteLine($"Error: Left is directory, right is file : {path}");
                 return null;
             case EntryPair.FileDir:
                 // エラー。左がファイル、右がディレクトリ
-                Console.WriteLine($"Error: left is file, right is directory : {path}");
+                Console.WriteLine($"Error: Left is file, right is directory : {path}");
                 return null;
 
             case EntryPair.DirDir x:

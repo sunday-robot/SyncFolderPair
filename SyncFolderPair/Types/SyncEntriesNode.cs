@@ -6,7 +6,7 @@ namespace SyncFolderPair.Types;
 public class SyncEntries2 : List<(string Name, SyncEntry Entry)>;
 public abstract record SyncEntry
 {
-    public record Directory(SyncEntries2 Entries) : SyncEntry;
+    public record Directory(SyncEntries2 Children) : SyncEntry;
     public record File(DateTime LastWriteTimeUtc) : SyncEntry;
 }
 
@@ -17,7 +17,7 @@ public abstract record SyncEntry
 [JsonDerivedType(typeof(SyncEntries), nameof(SyncEntries))]
 public abstract record SyncEntriesNode;
 
-public sealed record SyncEntriesLeaf(DateTime LastModifiedUtc) : SyncEntriesNode();
+public sealed record SyncEntriesLeaf(DateTime LastWriteTimeUtc) : SyncEntriesNode();
 
 public sealed record SyncEntries(IDictionary<string, SyncEntriesNode> Nodes) : SyncEntriesNode
 {

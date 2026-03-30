@@ -1,6 +1,7 @@
 ﻿using SyncFolderPair.Types;
 using SyncFolderPair.Utils;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Win32Api;
 
@@ -38,8 +39,6 @@ public static class DirectorySynchronizer
 
 public abstract class AbstractDirectorySynchronizer(string leftBasePath, string rightBasePath)
 {
-    static readonly SyncEntriesLeaf _dummySyncEntriesLeaf = new(DateTime.MinValue);
-
     static readonly SyncEntries _emptySyncEntries = new();
 
     readonly string _leftBasePath = leftBasePath;
@@ -87,67 +86,71 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
 
     SyncEntries? SynchronizeDirectory(string path, EntryPair.DirDir dirDir, SyncEntriesNode? oldSyncEntryNode)
     {
-        var oldSyncEntries = (oldSyncEntryNode is SyncEntries entries) ? entries : _emptySyncEntries;
-        return Synchronize(path, dirDir.Children, oldSyncEntries);
+        switch (oldSyncEntryNode)
+        {
+            case SyncEntries y:
+                return Synchronize(path, dirDir.Children, y);
+            default:    // null or SyncEntriesLeaf
+                return Synchronize(path, dirDir.Children, _emptySyncEntries);
+        }
     }
 
     SyncEntriesNode? SynchronizeFile(string path, EntryPair.FileFile fileFile, SyncEntriesNode? oldSyncEntryNode)
     {
         var lt = (DateTime)fileFile.Left!;
         var rt = (DateTime)fileFile.Right!;
-        if (lt != rt)
+
+        switch (oldSyncEntryNode)
         {
-            if (oldSyncEntryNode is not SyncEntriesLeaf y)
-            {
-                // null: 運用ミス。左右でファイルが新規作成されたが、更新日時が異なる
-                // SyncEntries: 運用ミス。左右でディレクトリが削除され、さらにファイルが新規作成されたが、更新日時が異なる
-                Console.WriteLine($"[Operation Error] File was created on both sides, but they are different: {path}");
-                return oldSyncEntryNode;
-            }
-            if (lt > rt)
-            {
-                if (rt != y.LastModifiedUtc)
+            case SyncEntriesLeaf y:
+                switch (DateTime.Compare(lt, rt))
                 {
-                    // 運用ミス。左右で別々に更新された
-                    Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
+                    case > 0:
+                        if (rt != y.LastWriteTimeUtc)
+                        {
+                            // 運用ミス。左右で別々に更新された
+                            Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
+                            return oldSyncEntryNode;
+                        }
+                        // 左のファイルが更新された
+                        return ReplaceFile(true, path);
+                    case < 0:
+                        if (lt != y.LastWriteTimeUtc)
+                        {
+                            // 運用ミス。左右で別々に更新された
+                            Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
+                            return oldSyncEntryNode;
+                        }
+                        // 右のファイルが更新された
+                        return ReplaceFile(false, path);
+                    case 0:
+                        if (lt != y.LastWriteTimeUtc)
+                        {
+                            // 特殊運用。ファイルが更新され、手動同期済み
+                            return new SyncEntriesLeaf(lt);
+                        }
+                        // ファイルは更新されていない
+                        return oldSyncEntryNode;
+                }
+            default:    // null or SyncEntries
+                if (lt != rt)
+                {
+                    // 運用ミス。
+                    // 左右でファイルが新規作成されたが、更新日時が異なる
+                    // あるいは、左右でディレクトリが削除され、さらにファイルが新規作成されたが、更新日時が異なる
+                    Console.WriteLine($"[Operation Error] File was created on both sides, but they are different: {path}");
                     return oldSyncEntryNode;
                 }
-                // 左のファイルが更新された
-                return ReplaceFile(true, path);
-            }
-            else
-            {
-                if (lt != y.LastModifiedUtc)
-                {
-                    // 運用ミス。左右で別々に更新された
-                    Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
-                    return oldSyncEntryNode;
-                }
-                // 右のファイルが更新された
-                return ReplaceFile(false, path);
-            }
-        }
-        else
-        {
-            switch (oldSyncEntryNode)
-            {
-                case SyncEntriesLeaf y:
-                    if (lt != y.LastModifiedUtc)
-                        return new SyncEntriesLeaf(lt); // 特殊運用。ファイルが更新され、手動同期済み
-                    else
-                        return oldSyncEntryNode;    // ファイルは更新されていない
-                default:
-                    // null: 特殊運用。ファイルが作成され、手動同期済み
-                    // SyncEntries: 特殊運用。左右ディレクトリが削除され、ファイルが作成され、手動同期済み
-                    return new SyncEntriesLeaf(lt);
-            }
+                // ファイルが作成され、手動同期済み
+                // あるいは、左右ディレクトリが削除され、ファイルが作成され、手動同期済み
+                return new SyncEntriesLeaf(lt);
         }
     }
 
     SyncEntriesNode? SynchronizeDifferentType(bool isLeftDirectory, string path, EntryPair entryPair, SyncEntriesNode? oldSyncEntryNode)
     {
         var children = ((EntryPair.IHasChildren)entryPair).Children;
-        var lastModifiedUtc = (DateTime)((EntryPair.IHasFileInfo)entryPair).FileInfo!;
+        var t = (DateTime)((EntryPair.IHasFileInfo)entryPair).FileInfo!;
         switch (oldSyncEntryNode)
         {
             case SyncEntries y:
@@ -165,7 +168,7 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
                 return CopyFile(!isLeftDirectory, path);
 
             case SyncEntriesLeaf y:
-                if (lastModifiedUtc != y.LastModifiedUtc)
+                if (t != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方のファイルが削除され、ディレクトリが作成されたのに、もう片方のファイルが更新されている
                     Console.WriteLine("[Operation Error]"
@@ -178,8 +181,8 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
                 DeleteFile(!isLeftDirectory, path);
                 CreateDirectory(!isLeftDirectory, path);
                 return Synchronize(path, children, _emptySyncEntries);
-            default:
-                // null: 運用ミス。左右で異なる種類のものが新規作成された
+            default:    // null
+                // 運用ミス。左右で異なる種類のものが新規作成された
                 Console.WriteLine($"[Operation Error] A directory was created on one side and a file on the other. {path}");
                 return null;
         }
@@ -200,9 +203,9 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
                 // 残ったディレクトリを削除する
                 DeleteDirectory(leftDirectoryExists, path, x.Children);
                 return null;
-            default:
-                // null: 片方にディレクトリが新規作成された
-                // SyncEntriesLeaf: 左右でファイルが削除され、片方にディレクトリが新規作成された
+            default:    // null or SyncEntriesLeaf
+                // 片方にディレクトリが新規作成された
+                // あるいは、左右でファイルが削除され、片方にディレクトリが新規作成された
                 // もう片方にディレクトリを作成し、ディレクトリの内容をコピーする
                 CreateDirectory(!leftDirectoryExists, path);
                 return Synchronize(path, x.Children, _emptySyncEntries);
@@ -214,7 +217,7 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
         switch (oldSyncEntriesNode)
         {
             case SyncEntriesLeaf y:
-                if ((DateTime)x.FileInfo! != y.LastModifiedUtc)
+                if ((DateTime)x.FileInfo! != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方でファイルが削除されたが、もう片方のファイルは更新されている
                     Console.WriteLine($"[Operation Error] Left? file was deleted, but right? file was updated. {path}");    // TODO
@@ -224,10 +227,10 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
                 // 残ったファイルを削除する
                 DeleteFile(leftFileExists, path);
                 return null;
-            default:
-                // null: 片方にファイルが新規作成された
-                // SyncEntries: 左右のディレクトリが削除され、片方にファイルが作成された
-                // 新規作成されたファイルをコピーする
+            default:    // null or SyncEntries
+                // 片方にファイルが作成された
+                // あるいは、左右のディレクトリが削除され、片方にファイルが作成された
+                // 作成されたファイルをコピーする
                 return CopyFile(leftFileExists, path);
         }
     }
@@ -240,51 +243,43 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
     /// <param name="ignoreEntries"></param>
     /// <param name="oldSyncEntries"></param>
     /// <returns></returns>
-    private static bool IsDirectoryUpdated(IEnumerable<EntryPair> entryPairs, SyncEntries oldSyncEntries)
+    static bool IsDirectoryUpdated(IEnumerable<EntryPair> entryPairs, SyncEntries oldSyncEntries)
     {
-        foreach (var e in entryPairs)
+        foreach (var entryPair in entryPairs)
         {
-            var node = oldSyncEntries.Get(e.Name);
-            if (node == null)
-                return true;    // ディレクトリあるいはファイルが作成された
-
-            switch (e)
-            {
-                case EntryPair.NoneDir x:
-                    {
-                        if (node is not SyncEntries y)
-                            return true;    // 元はファイルだったのに、削除され、ディレクトリが作成されていた
-                        if (IsDirectoryUpdated(x.Children, y))
-                            return true;
-                    }
-                    break;
-                case EntryPair.DirNone x:
-                    {
-                        if (node is not SyncEntries y)
-                            return true;    // 元はファイルだったのに、削除され、ディレクトリが作成されていた
-                        if (IsDirectoryUpdated(x.Children, y))
-                            return true;
-                    }
-                    break;
-                case EntryPair.NoneFile x:
-                    {
-                        if (node is not SyncEntriesLeaf y)
-                            return true;    // ディレクトリが削除されファイルが作成された
-                        if (((DateTime)x.FileInfo!) != y.LastModifiedUtc)
-                            return true;    // ファイルが更新された
-                    }
-                    break;
-                case EntryPair.FileNone x:
-                    {
-                        if (node is not SyncEntriesLeaf y)
-                            return true;    // ディレクトリが削除されファイルが作成された
-                        if (((DateTime)x.FileInfo!) != y.LastModifiedUtc)
-                            return true;    // ファイルが更新された
-                    }
-                    break;
-            }
+            if (IsEntryUpdated(entryPair, oldSyncEntries.Get(entryPair.Name)))
+                return true;
         }
         return false;   // ディレクトリは更新されていない
+    }
+
+    static bool IsEntryUpdated(EntryPair entryPair, SyncEntriesNode? oldSyncEntriesNode)
+    {
+        switch (entryPair)
+        {
+            case EntryPair.IHasChildren x:
+                switch (oldSyncEntriesNode)
+                {
+                    case SyncEntries y:
+                        return IsDirectoryUpdated(x.Children, y);
+                    default:    // null or SyncEntriesLeaf
+                        // ディレクトリが作成された
+                        // あるいは、元はファイルだったのに、削除され、ディレクトリが作成されていた
+                        return true;
+                }
+            case EntryPair.IHasFileInfo x:
+                switch (oldSyncEntriesNode)
+                {
+                    case SyncEntriesLeaf y:
+                        return ((DateTime)x.FileInfo!) != y.LastWriteTimeUtc;
+                    default:    // null or SyncEntries
+                        // ファイルが作成された
+                        // あるいは、元はディレクトリだったのに、削除され、ファイルが作成されていた
+                        return true;
+                }
+            default:
+                throw new UnreachableException();
+        }
     }
 
     /// <summary>
@@ -294,25 +289,30 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
     /// </summary>
     void DeleteDirectory(bool isLeft, string path, IEnumerable<EntryPair> entryPairs)
     {
-        foreach (var e in entryPairs)
-        {
-            switch (e)
-            {
-                case EntryPair.NoneDir x:
-                    DeleteDirectory(false, Path.Combine(path, e.Name), x.Children);
-                    break;
-                case EntryPair.DirNone x:
-                    DeleteDirectory(true, Path.Combine(path, e.Name), x.Children);
-                    break;
-                case EntryPair.NoneFile:
-                    DeleteFile(false, Path.Combine(path, e.Name));
-                    break;
-                case EntryPair.FileNone:
-                    DeleteFile(true, Path.Combine(path, e.Name));
-                    break;
-            }
-        }
+        foreach (var entryPair in entryPairs)
+            DeleteEntry(Path.Combine(path, entryPair.Name), entryPair);
         DeleteEmptyDirectory(isLeft, path);
+    }
+
+    void DeleteEntry(string path, EntryPair entryPair)
+    {
+        switch (entryPair)
+        {
+            case EntryPair.NoneDir x:
+                DeleteDirectory(false, path, x.Children);
+                break;
+            case EntryPair.DirNone x:
+                DeleteDirectory(true, path, x.Children);
+                break;
+            case EntryPair.NoneFile:
+                DeleteFile(false, path);
+                break;
+            case EntryPair.FileNone:
+                DeleteFile(true, path);
+                break;
+            default:
+                throw new UnreachableException();
+        }
     }
 
     void CreateDirectory(bool isLeft, string path)
