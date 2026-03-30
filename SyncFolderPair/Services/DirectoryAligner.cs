@@ -3,7 +3,7 @@ using SyncFolderPair.Utils;
 
 namespace SyncFolderPair.Services;
 
-public static class DirectoryAligner
+public abstract class DirectoryAligner(bool forceMode, string leftBasePath, string rightBasePath)
 {
     /// <summary>
     /// 片方のディレクトリにしかないファイルを、もう片方のディレクトリにコピーする。また、その旨をユーザーに通知する。
@@ -12,8 +12,8 @@ public static class DirectoryAligner
     /// </summary>
     public static void Align(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignDirectory(CreateDirectory, CopyFile, PrintSkipFile,
-            leftBase, rightBase, ignoreEntries);
+        var aligner = new Aligner(false, leftBase, rightBase);
+        aligner.Align(ignoreEntries);
     }
 
     /// <summary>
@@ -21,8 +21,8 @@ public static class DirectoryAligner
     /// </summary>
     public static void CheckAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignDirectory(PrintCreateDirectory, PrintCopyFile, PrintSkipFile,
-            leftBase, rightBase, ignoreEntries);
+        var checker = new Checker(leftBase, rightBase);
+        checker.Align(ignoreEntries);
     }
 
     /// <summary>
@@ -32,78 +32,69 @@ public static class DirectoryAligner
     /// </summary>
     public static void ForceAlign(string leftBase, string rightBase, IgnoreEntries ignoreEntries)
     {
-        AlignDirectory(CreateDirectory, CopyFile, ReplaceFile,
-            leftBase, rightBase, ignoreEntries);
+        var aligner = new Aligner(true, leftBase, rightBase);
+        aligner.Align(ignoreEntries);
     }
 
-    static void AlignDirectory(
-        Action<bool, string, string> createDirectory,
-        Action<bool, string, string, string> copyFile,
-        Action<bool, string, string, string> overwriteFile,
-        string leftBase,
-        string rightBase,
-        IgnoreEntries ignoreEntries)
+
+    readonly bool _forceMode = forceMode;
+    readonly string _leftBasePath = leftBasePath;
+    readonly string _rightBasePath = rightBasePath;
+
+    void Align(IgnoreEntries ignoreEntries)
     {
-        var entryPairs = EntryPairs.Enumerate(leftBase, rightBase, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
-        AlignDirectory(createDirectory, copyFile, overwriteFile, leftBase, rightBase, "", entryPairs);
+        var entryPairs = EntryPairs.Enumerate(_leftBasePath, _rightBasePath, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
+        AlignEntryPairs("", entryPairs);
     }
 
-    static void AlignDirectory(
-        Action<bool, string, string> createDirectory,
-        Action<bool, string, string, string> copyFile,
-        Action<bool, string, string, string> overwriteFile,
-        string leftBase,
-        string rightBase,
-        string path,
-        IEnumerable<EntryPair> entryPairs)
+    void AlignEntryPairs(string path, IEnumerable<EntryPair> entryPairs)
     {
-        var left = Path.Combine(leftBase, path);
-        var right = Path.Combine(rightBase, path);
-        foreach (var e in entryPairs)
+        foreach (var entryPair in entryPairs)
+            AlignEntryPair(Path.Combine(path, entryPair.Name), entryPair);
+    }
+
+    void AlignEntryPair(string path, EntryPair entryPair)
+    {
+        switch (entryPair)
         {
-            var p = Path.Combine(path, e.Name);
-            switch (e)
-            {
-                case EntryPair.DirFile:
-                    Console.WriteLine($"[!!!!] Left is directory, but right is file. {p}");
-                    break;
-                case EntryPair.FileDir:
-                    Console.WriteLine($"[!!!!] Right is directory, but right is directory. {p}");
-                    break;
+            case EntryPair.DirFile:
+                Console.WriteLine($"[!!!!] Left is directory, but right is file. {path}");
+                break;
+            case EntryPair.FileDir:
+                Console.WriteLine($"[!!!!] Left is directory, but right is file. {path}");
+                break;
 
-                case EntryPair.DirNone x:
-                    createDirectory(false, rightBase, path);
-                    AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.Children);
-                    break;
-                case EntryPair.NoneDir x:
-                    createDirectory(true, leftBase, path);
-                    AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.Children);
-                    break;
+            case EntryPair.DirNone x:
+                CreateDirectory(false, path);
+                AlignEntryPairs(path, x.Children);
+                break;
+            case EntryPair.NoneDir x:
+                CreateDirectory(true, path);
+                AlignEntryPairs(path, x.Children);
+                break;
 
-                case EntryPair.FileNone:
-                    copyFile(true, leftBase, rightBase, p);
-                    break;
-                case EntryPair.NoneFile:
-                    copyFile(false, rightBase, leftBase, p);
-                    break;
+            case EntryPair.FileNone:
+                CopyFile(true, path);
+                break;
+            case EntryPair.NoneFile:
+                CopyFile(false, path);
+                break;
 
-                case EntryPair.DirDir x:
-                    AlignDirectory(createDirectory, copyFile, overwriteFile,
-                        leftBase, rightBase, p, x.Children);
-                    break;
+            case EntryPair.DirDir x:
+                AlignEntryPairs(path, x.Children);
+                break;
 
-                case EntryPair.FileFile x:
-                    var lt = (DateTime)x.Left!;
-                    var rt = (DateTime)x.Right!;
-                    if (lt > rt)
-                        overwriteFile(true, leftBase, rightBase, p);    // 左の新しいファイルで右のものを上書きする
-                    else if (lt < rt)
-                        overwriteFile(false, rightBase, leftBase, p);   // 右の新しいファイルで左のものを上書きする
-                    // 更新日時が同じファイルに対しては何もしない
-                    break;
-            }
+            case EntryPair.FileFile x:
+                var lt = (DateTime)x.Left!;
+                var rt = (DateTime)x.Right!;
+                if (lt != rt)
+                {
+                    if (_forceMode)
+                        OverwriteFile(lt > rt, path);    // 新しいファイルで上書きする
+                    else
+                        PrintMessage("SKIP", lt > rt, path);
+                }
+                break;
         }
     }
 
@@ -115,28 +106,51 @@ public static class DirectoryAligner
             Console.WriteLine($"[<{operation,-10}] {path}");
     }
 
-    static void PrintCreateDirectory(bool isLeft, string _, string path) => PrintMessage("MKDIR", !isLeft, path);
-
-    static void PrintCopyFile(bool leftToRight, string _, string __, string path) => PrintMessage("COPY", leftToRight, path);
-
-    static void PrintSkipFile(bool leftToRight, string _, string __, string path) => PrintMessage("SKIP", leftToRight, path);
-
-    static void CreateDirectory(bool isLeft, string baseDir, string path)
+    void CreateDirectory(bool isLeft, string path)
     {
-        PrintCreateDirectory(isLeft, "", path);
-        var p = Path.Combine(baseDir, path);
-        Directory.CreateDirectory(p);
+        PrintMessage("MKDIR", !isLeft, path);
+        var srcBase = isLeft ? _leftBasePath : _rightBasePath;
+        var p = Path.Combine(srcBase, path);
+        CreateDirectory(p);
     }
 
-    static void CopyFile(bool leftToRight, string srcBase, string destBase, string path)
+    protected abstract void CreateDirectory(string path);
+
+    void CopyFile(bool leftToRight, string path)
     {
-        PrintCopyFile(leftToRight, "", "", path);
-        File.Copy(Path.Combine(srcBase, path), Path.Combine(destBase, path), false);
+        PrintMessage("COPY", leftToRight, path);
+        var (src, dest) = GetSrcDest(leftToRight, path);
+        CopyFile(src, dest);
     }
 
-    static void ReplaceFile(bool leftToRight, string srcBase, string destBase, string path)
+    protected abstract void CopyFile(string src, string dest);
+
+    void OverwriteFile(bool leftToRight, string path)
     {
         PrintMessage("OVERWRITE", leftToRight, path);
-        FileUtils.ReplaceFile(Path.Combine(srcBase, path), Path.Combine(destBase, path));
+        var (src, dest) = GetSrcDest(leftToRight, path);
+        OverwriteFile(src, dest);
+    }
+
+    protected abstract void OverwriteFile(string src, string dest);
+
+    (string Src, string Dest) GetSrcDest(bool leftToRight, string path)
+    {
+        var (srcBase, destBase) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
+        return (Path.Combine(srcBase, path), Path.Combine(srcBase, path));
+    }
+
+    class Aligner(bool forceMode, string leftBasePath, string rightBasePath) : DirectoryAligner(forceMode, leftBasePath, rightBasePath)
+    {
+        protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
+        protected override void CopyFile(string src, string dest) => File.Copy(src, dest, false);
+        protected override void OverwriteFile(string src, string dest) => FileUtils.ReplaceFile(src, dest);
+    }
+
+    class Checker(string leftBasePath, string rightBasePath) : DirectoryAligner(false, leftBasePath, rightBasePath)
+    {
+        protected override void CreateDirectory(string path) { }
+        protected override void CopyFile(string src, string dest) { }
+        protected override void OverwriteFile(string src, string dest) { }
     }
 }

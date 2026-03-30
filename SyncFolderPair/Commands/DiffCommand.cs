@@ -21,7 +21,7 @@ public sealed class DiffCommand : AbstractCommand
         return 0;
     }
 
-    private static void Print(string path, IEnumerable<DifferentEntryPair> enumerable)
+    static void Print(string path, IEnumerable<DifferentEntryPair> enumerable)
     {
         foreach (var e in enumerable)
         {

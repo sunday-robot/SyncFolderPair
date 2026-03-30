@@ -7,7 +7,7 @@ using Win32Api;
 
 namespace SyncFolderPair.Services;
 
-public static class DirectorySynchronizer
+public abstract class DirectorySynchronizer(string leftBasePath, string rightBasePath)
 {
     /// <summary>
     /// 二つのディレクトリの更新内容を互いに反映する。
@@ -19,7 +19,7 @@ public static class DirectorySynchronizer
     /// <returns>今回の更新結果</returns>
     public static SyncEntries Synchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
-        var synchronizer = new DirectorySynchronizerX(leftDirectoryPath, rightDirectoryPath);
+        var synchronizer = new Synchronizer(leftDirectoryPath, rightDirectoryPath);
         return synchronizer.Synchronize(ignoreEntries, oldSyncEntries);
     }
 
@@ -32,13 +32,10 @@ public static class DirectorySynchronizer
     /// <param name="oldSyncEntries">前回の更新結果</param>
     public static void CheckSynchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
-        var synchronizer = new DirectorySynchronizeChecker(leftDirectoryPath, rightDirectoryPath);
-        synchronizer.Synchronize(ignoreEntries, oldSyncEntries);
+        var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
+        checker.Synchronize(ignoreEntries, oldSyncEntries);
     }
-}
 
-public abstract class AbstractDirectorySynchronizer(string leftBasePath, string rightBasePath)
-{
     static readonly SyncEntries _emptySyncEntries = [];
 
     readonly string _leftBasePath = leftBasePath;
@@ -351,37 +348,37 @@ public abstract class AbstractDirectorySynchronizer(string leftBasePath, string 
         var (s, d) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
         return (Path.Combine(s, path), Path.Combine(d, path));
     }
-}
 
-public sealed class DirectorySynchronizerX(string leftBasePath, string rightBasePath) : AbstractDirectorySynchronizer(leftBasePath, rightBasePath)
-{
-    protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
-
-    protected override void DeleteEmptyDirectory(string path)
+    public sealed class Synchronizer(string leftBasePath, string rightBasePath) : DirectorySynchronizer(leftBasePath, rightBasePath)
     {
-        if (!Win32.RemoveDirectory(path))
+        protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
+
+        protected override void DeleteEmptyDirectory(string path)
         {
-            // ディレクトリ削除失敗の理由が、ディレクトリが空でないためであれば、正常扱いとする(無視ディレクトリがあれば、ディレクトリが空にならないため)
-            int error = Marshal.GetLastWin32Error();
-            if (error != 145) // ERROR_DIR_NOT_EMPTY
+            if (!Win32.RemoveDirectory(path))
             {
-                throw new Win32Exception(error);
+                // ディレクトリ削除失敗の理由が、ディレクトリが空でないためであれば、正常扱いとする(無視ディレクトリがあれば、ディレクトリが空にならないため)
+                int error = Marshal.GetLastWin32Error();
+                if (error != 145) // ERROR_DIR_NOT_EMPTY
+                {
+                    throw new Win32Exception(error);
+                }
             }
         }
+
+        protected override void CopyFile(string srcPath, string destPath) => File.Copy(srcPath, destPath, false);
+
+        protected override void ReplaceFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
+
+        protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
     }
 
-    protected override void CopyFile(string srcPath, string destPath) => File.Copy(srcPath, destPath, false);
-
-    protected override void ReplaceFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
-
-    protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
-}
-
-public sealed class DirectorySynchronizeChecker(string leftBasePath, string rightBasePath) : AbstractDirectorySynchronizer(leftBasePath, rightBasePath)
-{
-    protected override void CreateDirectory(string path) { }
-    protected override void DeleteEmptyDirectory(string path) { }
-    protected override void CopyFile(string srcPath, string destPath) { }
-    protected override void ReplaceFile(string srcPath, string destPath) { }
-    protected override void DeleteFile(string path) { }
+    public sealed class Checker(string leftBasePath, string rightBasePath) : DirectorySynchronizer(leftBasePath, rightBasePath)
+    {
+        protected override void CreateDirectory(string path) { }
+        protected override void DeleteEmptyDirectory(string path) { }
+        protected override void CopyFile(string srcPath, string destPath) { }
+        protected override void ReplaceFile(string srcPath, string destPath) { }
+        protected override void DeleteFile(string path) { }
+    }
 }
