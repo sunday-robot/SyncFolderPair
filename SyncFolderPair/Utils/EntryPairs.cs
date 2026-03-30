@@ -95,10 +95,6 @@ public static class EntryPairs
         }
     }
 
-    //static IEnumerable<string> EnumerateName(string directoryPath)
-    //    => Directory.EnumerateFileSystemEntries(directoryPath)
-    //    .Select(path => Path.GetFileName(path)!);
-
     /// <summary>
     /// ディレクトリ直下のエントリーの名前を、名前順に列挙する。
     /// ただし、ignoreEntriesで指定されたエントリーは列挙しない。
