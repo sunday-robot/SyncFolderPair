@@ -7,7 +7,7 @@ public class SyncEntries2 : List<(string Name, SyncEntry Entry)>;
 public abstract record SyncEntry
 {
     public record Directory(SyncEntries2 Entries) : SyncEntry;
-    public record File(DateTime LastWriteTimeUtc, long Size) : SyncEntry;
+    public record File(DateTime LastWriteTimeUtc) : SyncEntry;
 }
 
 /// <summary>
