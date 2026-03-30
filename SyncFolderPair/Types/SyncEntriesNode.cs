@@ -24,6 +24,5 @@ public sealed record SyncEntries(IDictionary<string, SyncEntriesNode> Nodes) : S
     public SyncEntries() : this(new Dictionary<string, SyncEntriesNode>(StringComparer.OrdinalIgnoreCase)) { }
     public SyncEntriesNode? Get(string name) => !Nodes.TryGetValue(name, out var node) ? null : node;
 
-    // TODO 以下は、Setにして、引数がnullだったらセットせず、逆にあったら削除するようにしたほうが良いかも。
     public void Add(string name, SyncEntriesNode node) => Nodes[name] = node;
 }
