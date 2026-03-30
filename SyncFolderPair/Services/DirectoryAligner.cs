@@ -5,6 +5,7 @@ namespace SyncFolderPair.Services;
 
 public abstract class DirectoryAligner(bool forceMode, string leftBasePath, string rightBasePath)
 {
+    #region 公開staticメソッド群
     /// <summary>
     /// 片方のディレクトリにしかないファイルを、もう片方のディレクトリにコピーする。また、その旨をユーザーに通知する。
     /// 両方のディレクトリにあり、タイムスタンプが同じファイルについては何もしないし、その旨をユーザーに通知もしない。
@@ -35,8 +36,9 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
         var aligner = new Aligner(true, leftBase, rightBase);
         aligner.Align(ignoreEntries);
     }
+    #endregion 公開staticメソッド群
 
-
+    #region 本来の抽象クラス定義
     readonly bool _forceMode = forceMode;
     readonly string _leftBasePath = leftBasePath;
     readonly string _rightBasePath = rightBasePath;
@@ -139,7 +141,9 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
         var (srcBase, destBase) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
         return (Path.Combine(srcBase, path), Path.Combine(srcBase, path));
     }
+    #endregion 本来の抽象クラス定義
 
+    #region 派生クラス群
     class Aligner(bool forceMode, string leftBasePath, string rightBasePath) : DirectoryAligner(forceMode, leftBasePath, rightBasePath)
     {
         protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
@@ -153,4 +157,5 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
         protected override void CopyFile(string src, string dest) { }
         protected override void OverwriteFile(string src, string dest) { }
     }
+    #endregion 派生クラス群
 }
