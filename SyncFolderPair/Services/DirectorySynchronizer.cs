@@ -49,7 +49,6 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     #region 本来の抽象クラス定義
     static readonly SyncEntries _emptySyncEntries = [];
 
-    // TODO 命名規約に沿っていない。なおすこと。
     public event Action<Operation, bool /* isTargetLeft */, string /* path */>? EntryOperationStarted;
     public event Action<string /* message */>? ErrorOccurred;
 
@@ -80,12 +79,12 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         {
             EntryPair.DirDir x => SynchronizeDirectory(path, x, oldSyncEntryContent),
             EntryPair.FileFile x => SynchronizeFile(path, x, oldSyncEntryContent),
-            EntryPair.DirFile x => SynchronizeDifferentType(true, path, x, oldSyncEntryContent),
-            EntryPair.FileDir x => SynchronizeDifferentType(false, path, x, oldSyncEntryContent),
-            EntryPair.DirNone x => SynchronizeOrphanDirectory(true, path, x, oldSyncEntryContent),
-            EntryPair.NoneDir x => SynchronizeOrphanDirectory(false, path, x, oldSyncEntryContent),
-            EntryPair.FileNone x => SynchronizeOrphanFile(true, path, x, oldSyncEntryContent),
-            EntryPair.NoneFile x => SynchronizeOrphanFile(false, path, x, oldSyncEntryContent),
+            EntryPair.DirFile x => SynchronizeDirFile(path, x, oldSyncEntryContent),
+            EntryPair.FileDir x => SynchronizeFileDir(path, x, oldSyncEntryContent),
+            EntryPair.DirNone x => SynchronizeDirNone(path, x, oldSyncEntryContent),
+            EntryPair.NoneDir x => SynchronizeNoneDir(path, x, oldSyncEntryContent),
+            EntryPair.FileNone x => SynchronizeFileNone(path, x, oldSyncEntryContent),
+            EntryPair.NoneFile x => SynchronizeNoneFile(path, x, oldSyncEntryContent),
             _ => null,// ここに到達することはない
         };
     }
@@ -150,16 +149,18 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         }
     }
 
-    // TODO isLeftDirectoryはDirFileかFileDirかで判断できるので、引数として渡す必要はない。EntryPairから判断するようにすること。
-    // あるいは、EntryPairではなく、そのメンバを引数で渡すようにすべきか？
-    SyncEntryContent? SynchronizeDifferentType(bool isLeftDirectory, string path, EntryPair entryPair, SyncEntryContent? oldSyncEntryContent)
+    SyncEntryContent? SynchronizeDirFile(string path, EntryPair.DirFile dirFile, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeDifferentType(true, path, dirFile.Children, (DateTime)dirFile.FileInfo!, oldSyncEntryContent);
+
+    SyncEntryContent? SynchronizeFileDir(string path, EntryPair.FileDir fileDir, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeDifferentType(false, path, fileDir.Children, (DateTime)fileDir.FileInfo!, oldSyncEntryContent);
+
+    SyncEntryContent? SynchronizeDifferentType(bool isLeftDirectory, string path, IEnumerable<EntryPair> directoryChildren, DateTime fileLastWriteTimeUtc, SyncEntryContent? oldSyncEntryContent)
     {
-        var children = ((EntryPair.IHasChildren)entryPair).Children;
-        var t = (DateTime)((EntryPair.IHasFileInfo)entryPair).FileInfo!;
         switch (oldSyncEntryContent)
         {
             case SyncEntryContent.Directory y:
-                if (IsDirectoryUpdated(children, y.Children))
+                if (IsDirectoryUpdated(directoryChildren, y.Children))
                 {
                     // 運用ミス。片方のディレクトリが削除され、ファイルが作成されたのに、もう片方のディレクトリが更新されている
                     ErrorOccurred?.Invoke("[Operation Error]"
@@ -169,10 +170,10 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 }
                 // 片方のディレクトリが削除され、ファイルが作成された
                 // もう片方のディレクトリを削除し、ファイルをコピーする
-                DeleteDirectory(isLeftDirectory, path, children);
+                DeleteDirectory(isLeftDirectory, path, directoryChildren);
                 return CopyFile(isLeftDirectory, path);
             case SyncEntryContent.File y:
-                if (t != y.LastWriteTimeUtc)
+                if (fileLastWriteTimeUtc != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方のファイルが削除され、ディレクトリが作成されたのに、もう片方のファイルが更新されている
                     ErrorOccurred?.Invoke("[Operation Error]"
@@ -184,7 +185,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 // もう片方のファイルを削除し、ディレクトリをコピーする
                 DeleteFile(!isLeftDirectory, path);
                 CreateDirectory(!isLeftDirectory, path);
-                return new SyncEntryContent.Directory(SynchronizeEntryPairs(path, children, _emptySyncEntries));
+                return new SyncEntryContent.Directory(SynchronizeEntryPairs(path, directoryChildren, _emptySyncEntries));
             default:    // null
                 // 運用ミス。左右で異なる種類のものが新規作成された
                 ErrorOccurred?.Invoke($"[Operation Error] A directory was created on one side and a file on the other. {path}");
@@ -192,12 +193,18 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         }
     }
 
-    SyncEntryContent.Directory? SynchronizeOrphanDirectory(bool leftDirectoryExists, string path, EntryPair.IHasChildren x, SyncEntryContent? oldSyncEntryContent)
+    SyncEntryContent.Directory? SynchronizeDirNone(string path, EntryPair.DirNone dirNone, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeOrphanDirectory(true, path, dirNone.Children, oldSyncEntryContent);
+
+    SyncEntryContent.Directory? SynchronizeNoneDir(string path, EntryPair.NoneDir noneDir, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeOrphanDirectory(false, path, noneDir.Children, oldSyncEntryContent);
+
+    SyncEntryContent.Directory? SynchronizeOrphanDirectory(bool leftDirectoryExists, string path, IEnumerable<EntryPair> directoryChildren, SyncEntryContent? oldSyncEntryContent)
     {
         switch (oldSyncEntryContent)
         {
             case SyncEntryContent.Directory y:
-                if (IsDirectoryUpdated(x.Children, y.Children))
+                if (IsDirectoryUpdated(directoryChildren, y.Children))
                 {
                     // 運用ミス。片方のディレクトリが削除されたのに、もう片方のディレクトリが更新された
                     ErrorOccurred?.Invoke($"[Operation Error] A directory was deleted on one side, but the directory was updated on the other. {path}");
@@ -205,23 +212,29 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 }
                 // 片方のディレクトリが削除された
                 // 残ったディレクトリを削除する
-                DeleteDirectory(leftDirectoryExists, path, x.Children);
+                DeleteDirectory(leftDirectoryExists, path, directoryChildren);
                 return null;
             default:    // null or SyncEntriesLeaf
                 // 片方にディレクトリが新規作成された
                 // あるいは、左右でファイルが削除され、片方にディレクトリが新規作成された
                 // もう片方にディレクトリを作成し、ディレクトリの内容をコピーする
                 CreateDirectory(!leftDirectoryExists, path);
-                return new SyncEntryContent.Directory(SynchronizeEntryPairs(path, x.Children, _emptySyncEntries));
+                return new SyncEntryContent.Directory(SynchronizeEntryPairs(path, directoryChildren, _emptySyncEntries));
         }
     }
 
-    SyncEntryContent.File? SynchronizeOrphanFile(bool leftFileExists, string path, EntryPair.IHasFileInfo x, SyncEntryContent? oldSyncEntryContent)
+    SyncEntryContent.File? SynchronizeFileNone(string path, EntryPair.FileNone fileNone, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeOrphanFile(true, path, (DateTime)fileNone.FileInfo!, oldSyncEntryContent);
+
+    SyncEntryContent.File? SynchronizeNoneFile(string path, EntryPair.NoneFile noneFile, SyncEntryContent? oldSyncEntryContent)
+        => SynchronizeOrphanFile(false, path, (DateTime)noneFile.FileInfo!, oldSyncEntryContent);
+
+    SyncEntryContent.File? SynchronizeOrphanFile(bool leftFileExists, string path, DateTime fileLastWriteTimeUtc, SyncEntryContent? oldSyncEntryContent)
     {
         switch (oldSyncEntryContent)
         {
             case SyncEntryContent.File y:
-                if ((DateTime)x.FileInfo! != y.LastWriteTimeUtc)
+                if (fileLastWriteTimeUtc != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方でファイルが削除されたが、もう片方のファイルは更新されている
                     ErrorOccurred?.Invoke($"[Operation Error] A file was deleted on one side, but the file was updated on the other. {path}");
