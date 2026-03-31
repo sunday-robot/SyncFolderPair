@@ -50,22 +50,31 @@ public static class AppService
         return DirectoryPairStorage.Enumerate();
     }
 
-    public static void AlignDirectoryPair(string pairName)
+    public static void AlignDirectoryPair(string pairName,
+        Action<Operation, bool, string> onEntryOperationStarted,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        DirectoryAligner.Align(false, leftDirectory, rightDirectory, ignoreEntries);
+        DirectoryAligner.Align(false, leftDirectory, rightDirectory, ignoreEntries,
+            onEntryOperationStarted, onErrorOccurred);
     }
 
-    public static void ForceAlignDirectoryPair(string pairName)
+    public static void ForceAlignDirectoryPair(string pairName,
+        Action<Operation, bool, string> onEntryOperationStarted,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        DirectoryAligner.Align(true, leftDirectory, rightDirectory, ignoreEntries);
+        DirectoryAligner.Align(true, leftDirectory, rightDirectory, ignoreEntries,
+            onEntryOperationStarted, onErrorOccurred);
     }
 
-    public static void CheckAlignDirectoryPair(string pairName)
+    public static void CheckAlignDirectoryPair(string pairName,
+        Action<Operation, bool, string> onEntryOperationStarted,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        DirectoryAligner.CheckAlign(leftDirectory, rightDirectory, ignoreEntries);
+        DirectoryAligner.CheckAlign(leftDirectory, rightDirectory, ignoreEntries,
+            onEntryOperationStarted, onErrorOccurred);
     }
 
     /// <summary>

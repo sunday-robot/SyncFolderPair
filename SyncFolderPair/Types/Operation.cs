@@ -10,4 +10,5 @@ public enum Operation
     DeleteFile,
     CopyFile,
     OverwriteFile,
+    Skip,
 };

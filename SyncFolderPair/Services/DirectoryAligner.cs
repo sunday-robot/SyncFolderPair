@@ -13,23 +13,34 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
     /// forceModeの場合は、古い方のファイルをゴミ箱に移し、新しい方のファイルをもう型のウホディレクトリにコピーする。また、その旨をユーザーに通知する。
     /// forceModeではない場合は、コピーなどはしないが、その旨をユーザーに通知する。
     /// </summary>
-    public static void Align(bool forceMode, string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    public static void Align(bool forceMode, string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries,
+        Action<Operation, bool /* isTargetLeft */, string /* path */>? onEntryOperationStarted,
+        Action<string /* message */>? errorOccurred)
     {
         var aligner = new Aligner(forceMode, leftDirectoryPath, rightDirectoryPath);
+        aligner.EntryOperationStarted += onEntryOperationStarted;
+        aligner.ErrorOccurred += errorOccurred;
         aligner.Align(ignoreEntries);
     }
 
     /// <summary>
     /// 上のメソッドのファイルコピーなどを行わない版
     /// </summary>
-    public static void CheckAlign(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    public static void CheckAlign(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries,
+        Action<Operation, bool /* isTargetLeft */, string /* path */>? onEntryOperationStarted,
+        Action<string /* message */>? errorOccurred)
     {
         var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
+        checker.EntryOperationStarted += onEntryOperationStarted;
+        checker.ErrorOccurred += errorOccurred;
         checker.Align(ignoreEntries);
     }
     #endregion 公開staticメソッド群
 
     #region 本来の抽象クラス定義
+    public event Action<Operation, bool /* isTargetLeft */, string /* path */>? EntryOperationStarted;
+    public event Action<string /* message */>? ErrorOccurred;
+
     readonly bool _forceMode = forceMode;
     readonly string _leftBasePath = leftBasePath;
     readonly string _rightBasePath = rightBasePath;
@@ -51,10 +62,10 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
         switch (entryPair)
         {
             case EntryPair.DirFile:
-                Console.WriteLine($"[!!!!] Left is directory, but right is file. {path}");
+                ErrorOccurred?.Invoke($"[!!!!] Left is directory, but right is file. {path}");
                 break;
             case EntryPair.FileDir:
-                Console.WriteLine($"[!!!!] Left is file, but right is directory. {path}");
+                ErrorOccurred?.Invoke($"[!!!!] Left is file, but right is directory. {path}");
                 break;
 
             case EntryPair.DirNone x:
@@ -67,10 +78,10 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
                 break;
 
             case EntryPair.FileNone:
-                CopyFile(true, path);
+                CopyFile(false, path);
                 break;
             case EntryPair.NoneFile:
-                CopyFile(false, path);
+                CopyFile(true, path);
                 break;
 
             case EntryPair.DirDir x:
@@ -83,25 +94,17 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
                 if (lt != rt)
                 {
                     if (_forceMode)
-                        OverwriteFile(lt > rt, path);    // 新しいファイルで上書きする
+                        OverwriteFile(lt < rt, path);    // 新しいファイルで上書きする
                     else
-                        PrintMessage("SKIP", lt > rt, path);
+                        EntryOperationStarted?.Invoke(Operation.Skip, lt < rt, path);
                 }
                 break;
         }
     }
 
-    static void PrintMessage(string operation, bool leftToRight, string path)
-    {
-        if (leftToRight)
-            Console.WriteLine($"[{operation,10}>] {path}");
-        else
-            Console.WriteLine($"[<{operation,-10}] {path}");
-    }
-
     void CreateDirectory(bool isLeft, string path)
     {
-        PrintMessage("MKDIR", !isLeft, path);
+        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isLeft, path);
         var srcBase = isLeft ? _leftBasePath : _rightBasePath;
         var p = Path.Combine(srcBase, path);
         CreateDirectory(p);
@@ -109,27 +112,27 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
 
     protected abstract void CreateDirectory(string path);
 
-    void CopyFile(bool leftToRight, string path)
+    void CopyFile(bool isTargetLeft, string path)
     {
-        PrintMessage("COPY", leftToRight, path);
-        var (src, dest) = GetSrcDest(leftToRight, path);
+        EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
         CopyFile(src, dest);
     }
 
     protected abstract void CopyFile(string src, string dest);
 
-    void OverwriteFile(bool leftToRight, string path)
+    void OverwriteFile(bool isTargetLeft, string path)
     {
-        PrintMessage("OVERWRITE", leftToRight, path);
-        var (src, dest) = GetSrcDest(leftToRight, path);
+        EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
         OverwriteFile(src, dest);
     }
 
     protected abstract void OverwriteFile(string src, string dest);
 
-    (string Src, string Dest) GetSrcDest(bool leftToRight, string path)
+    (string Src, string Dest) GetSrcDest(bool isTargetLeft, string path)
     {
-        var (srcBase, destBase) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
+        var (srcBase, destBase) = isTargetLeft ? (_rightBasePath, _leftBasePath) : (_leftBasePath, _rightBasePath);
         return (Path.Combine(srcBase, path), Path.Combine(destBase, path));
     }
     #endregion 本来の抽象クラス定義

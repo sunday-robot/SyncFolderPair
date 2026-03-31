@@ -17,41 +17,19 @@ public sealed class SyncCommand : AbstractCommand
         switch (args.Length)
         {
             case 1:
-                AppService.Synchronize(args[0], PrintProgress, Console.WriteLine);
+                AppService.Synchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
                 break;
             case 2:
                 if (args[1] != "check")
                 {
                     throw new ArgumentException("Invalid parameter.");
                 }
-                AppService.CheckSynchronize(args[0], PrintProgress, Console.WriteLine);
+                AppService.CheckSynchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
                 break;
             default:
                 throw new ArgumentException("Parameter count error.");
         }
 
         return 0;
-    }
-
-    static void PrintProgress(Operation operation, bool isTargetLeft, string path)
-    {
-        var s = OperationToString(operation);
-        if (isTargetLeft)
-            Console.WriteLine($"[<{s,-10}] {path}");
-        else
-            Console.WriteLine($"[{s,10}>] {path}");
-    }
-
-    static string OperationToString(Operation operation)
-    {
-        return operation switch
-        {
-            Operation.CreateDirectory => "CREATE",
-            Operation.DeleteDirectory => "DELDIR",
-            Operation.DeleteFile => "DELFIL",
-            Operation.CopyFile => "COPY",
-            Operation.OverwriteFile => "OVRWRT",
-            _ => throw new UnreachableException()
-        };
     }
 }
