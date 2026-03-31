@@ -18,9 +18,13 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     /// <param name="ignoreEntries">無視するエントリー</param>
     /// <param name="oldSyncEntries">前回の更新結果</param>
     /// <returns>今回の更新結果</returns>
-    public static SyncEntries Synchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
+    public static SyncEntries Synchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries,
+        Action<Operation, bool /* isTargetLeft */, string /*path*/> entryOperationStarted,
+        Action<string /* message */>? errorOccurred)
     {
         var synchronizer = new Synchronizer(leftDirectoryPath, rightDirectoryPath);
+        synchronizer.EntryOperationStarted += entryOperationStarted;
+        synchronizer.ErrorOccurred += errorOccurred;
         return synchronizer.Synchronize(ignoreEntries, oldSyncEntries);
     }
 
@@ -31,9 +35,13 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     /// <param name="rightDirectoryPath"></param>
     /// <param name="ignoreEntries">無視するエントリー</param>
     /// <param name="oldSyncEntries">前回の更新結果</param>
-    public static void CheckSynchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
+    public static void CheckSynchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries,
+        Action<Operation, bool /* isTargetLeft */, string /*path*/> entryOperationStarted,
+        Action<string /* message */>? errorOccurred)
     {
         var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
+        checker.EntryOperationStarted += entryOperationStarted;
+        checker.ErrorOccurred += errorOccurred;
         checker.Synchronize(ignoreEntries, oldSyncEntries);
     }
     #endregion 公開staticメソッド群
@@ -41,14 +49,12 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     #region 本来の抽象クラス定義
     static readonly SyncEntries _emptySyncEntries = [];
 
+    // TODO 命名規約に沿っていない。なおすこと。
+    public event Action<Operation, bool /* isTargetLeft */, string /* path */>? EntryOperationStarted;
+    public event Action<string /* message */>? ErrorOccurred;
+
     readonly string _leftBasePath = leftBasePath;
     readonly string _rightBasePath = rightBasePath;
-
-    protected abstract void CreateDirectory(string path);
-    protected abstract void DeleteEmptyDirectory(string path);
-    protected abstract void CopyFile(string srcPath, string destPath);
-    protected abstract void ReplaceFile(string srcPath, string destPath);
-    protected abstract void DeleteFile(string path);
 
     public SyncEntries Synchronize(IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
@@ -97,7 +103,6 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     {
         var lt = (DateTime)fileFile.Left!;
         var rt = (DateTime)fileFile.Right!;
-
         switch (oldSyncEntryContent)
         {
             case SyncEntryContent.File y:
@@ -107,20 +112,20 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                         if (rt != y.LastWriteTimeUtc)
                         {
                             // 運用ミス。左右で別々に更新された
-                            Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
+                            ErrorOccurred?.Invoke($"[Operation Error] File was updated on both side: {path}");
                             return oldSyncEntryContent;
                         }
                         // 左のファイルが更新された
-                        return ReplaceFile(true, path);
+                        return OverwriteFile(false, path);
                     case < 0:
                         if (lt != y.LastWriteTimeUtc)
                         {
                             // 運用ミス。左右で別々に更新された
-                            Console.WriteLine($"[Operation Error] File was updated on both side: {path}");
+                            ErrorOccurred?.Invoke($"[Operation Error] File was updated on both side: {path}");
                             return oldSyncEntryContent;
                         }
                         // 右のファイルが更新された
-                        return ReplaceFile(false, path);
+                        return OverwriteFile(true, path);
                     case 0:
                         if (lt != y.LastWriteTimeUtc)
                         {
@@ -136,7 +141,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                     // 運用ミス。
                     // 左右でファイルが新規作成されたが、更新日時が異なる
                     // あるいは、左右でディレクトリが削除され、さらにファイルが新規作成されたが、更新日時が異なる
-                    Console.WriteLine($"[Operation Error] File was created on both sides, but they are different: {path}");
+                    ErrorOccurred?.Invoke($"[Operation Error] File was created on both sides, but they are different: {path}");
                     return oldSyncEntryContent;
                 }
                 // ファイルが作成され、手動同期済み
@@ -145,6 +150,8 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         }
     }
 
+    // TODO isLeftDirectoryはDirFileかFileDirかで判断できるので、引数として渡す必要はない。EntryPairから判断するようにすること。
+    // あるいは、EntryPairではなく、そのメンバを引数で渡すようにすべきか？
     SyncEntryContent? SynchronizeDifferentType(bool isLeftDirectory, string path, EntryPair entryPair, SyncEntryContent? oldSyncEntryContent)
     {
         var children = ((EntryPair.IHasChildren)entryPair).Children;
@@ -155,23 +162,22 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 if (IsDirectoryUpdated(children, y.Children))
                 {
                     // 運用ミス。片方のディレクトリが削除され、ファイルが作成されたのに、もう片方のディレクトリが更新されている
-                    Console.WriteLine("[Operation Error]"
+                    ErrorOccurred?.Invoke("[Operation Error]"
                         + " A directory was deleted and a file with the same name was created on one side,"
-                        + $" while the directory was updated on the other. {path}");    // TODO
+                        + $" while the directory was updated on the other. {path}");
                     return oldSyncEntryContent;
                 }
                 // 片方のディレクトリが削除され、ファイルが作成された
                 // もう片方のディレクトリを削除し、ファイルをコピーする
                 DeleteDirectory(isLeftDirectory, path, children);
-                return CopyFile(!isLeftDirectory, path);
-
+                return CopyFile(isLeftDirectory, path);
             case SyncEntryContent.File y:
                 if (t != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方のファイルが削除され、ディレクトリが作成されたのに、もう片方のファイルが更新されている
-                    Console.WriteLine("[Operation Error]"
+                    ErrorOccurred?.Invoke("[Operation Error]"
                         + " A file was deleted and a directory with the same name was created on one side,"
-                        + $" while the file was updated on the other. {path}"); // TODO
+                        + $" while the file was updated on the other. {path}");
                     return oldSyncEntryContent;
                 }
                 // 片方のファイルが削除され、ディレクトリが作成された
@@ -181,7 +187,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 return new SyncEntryContent.Directory(SynchronizeEntryPairs(path, children, _emptySyncEntries));
             default:    // null
                 // 運用ミス。左右で異なる種類のものが新規作成された
-                Console.WriteLine($"[Operation Error] A directory was created on one side and a file on the other. {path}");
+                ErrorOccurred?.Invoke($"[Operation Error] A directory was created on one side and a file on the other. {path}");
                 return null;
         }
     }
@@ -194,7 +200,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 if (IsDirectoryUpdated(x.Children, y.Children))
                 {
                     // 運用ミス。片方のディレクトリが削除されたのに、もう片方のディレクトリが更新された
-                    Console.WriteLine($"[Operation Mistake] Left directory was deleted, but Right directory was updated. {path}");  // TODO
+                    ErrorOccurred?.Invoke($"[Operation Error] A directory was deleted on one side, but the directory was updated on the other. {path}");
                     return y;
                 }
                 // 片方のディレクトリが削除された
@@ -218,7 +224,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 if ((DateTime)x.FileInfo! != y.LastWriteTimeUtc)
                 {
                     // 運用ミス。片方でファイルが削除されたが、もう片方のファイルは更新されている
-                    Console.WriteLine($"[Operation Error] Left? file was deleted, but right? file was updated. {path}");    // TODO
+                    ErrorOccurred?.Invoke($"[Operation Error] A file was deleted on one side, but the file was updated on the other. {path}");
                     return y;
                 }
                 // 片方のファイルが削除された
@@ -229,13 +235,12 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                 // 片方にファイルが作成された
                 // あるいは、左右のディレクトリが削除され、片方にファイルが作成された
                 // 作成されたファイルをコピーする
-                return CopyFile(leftFileExists, path);
+                return CopyFile(!leftFileExists, path);
         }
     }
 
     /// <summary>
-    /// ディレクトリが更新(ディレクトリ内に新規にディレクトリ、ファイルが作成された、ディレクトリ内のファイルが更新された)かどうかを返す。
-    /// ただし、ファイル、ディレクトリが削除されたとしても、それは無視する。
+    /// entryPairsに記載されているディレクトリ、ファイルが更新されているかどうかを返す。<br/>
     /// </summary>
     /// <param name="path"></param>
     /// <param name="ignoreEntries"></param>
@@ -248,9 +253,16 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
             if (IsEntryUpdated(entryPair, oldSyncEntries.Get(entryPair.Name)))
                 return true;
         }
-        return false;   // ディレクトリは更新されていない
+        return false;
     }
 
+    /// <summary>
+    /// entryPairに記載されているディレクりあるいはファイルが更新されているかどうかを返す。
+    /// </summary>
+    /// <param name="entryPair"></param>
+    /// <param name="oldSyncEntryContent"></param>
+    /// <returns></returns>
+    /// <exception cref="UnreachableException"></exception>
     static bool IsEntryUpdated(EntryPair entryPair, SyncEntryContent? oldSyncEntryContent)
     {
         return entryPair switch
@@ -270,15 +282,14 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     }
 
     /// <summary>
-    /// ディレクトリを削除する<br/>
-    /// 上記説明は不正確。正確にはディレクトリ内の各ファイルをゴミ箱に移動させ、ディレクトリを削除する。<br/>
-    /// ただし、無視ディレクトリ内のファイルについては削除しない。また、このようなファイルを含むディレクトリも削除はしない。<br/>
+    /// entryPairsに記載されているディレクトリ、ファイルを削除する。<br/>
+    /// ただし、ディレクトリに関しては、空になった場合にのみ削除する。<br/>
     /// </summary>
-    void DeleteDirectory(bool isLeft, string path, IEnumerable<EntryPair> entryPairs)
+    void DeleteDirectory(bool isTargetLeft, string path, IEnumerable<EntryPair> entryPairs)
     {
         foreach (var entryPair in entryPairs)
             DeleteEntry(Path.Combine(path, entryPair.Name), entryPair);
-        DeleteEmptyDirectory(isLeft, path);
+        DeleteEmptyDirectory(isTargetLeft, path);
     }
 
     void DeleteEntry(string path, EntryPair entryPair)
@@ -302,53 +313,55 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         }
     }
 
-    void CreateDirectory(bool isLeft, string path)
+    void CreateDirectory(bool isTargetLeft, string path)
     {
-        PrintMessage("CREATE", !isLeft, path);
-        CreateDirectory(GetPath(isLeft, path));
+        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isTargetLeft, path);
+        CreateDirectory(GetPath(isTargetLeft, path));
     }
 
-    void DeleteEmptyDirectory(bool isLeft, string path)
+    protected abstract void CreateDirectory(string path);
+
+    void DeleteEmptyDirectory(bool isTargetLeft, string path)
     {
-        PrintMessage("DELETE", !isLeft, path);
-        DeleteEmptyDirectory(GetPath(isLeft, path));
+        EntryOperationStarted?.Invoke(Operation.DeleteDirectory, isTargetLeft, path);
+        DeleteEmptyDirectory(GetPath(isTargetLeft, path));
     }
 
-    SyncEntryContent.File CopyFile(bool leftToRight, string path)
+    protected abstract void DeleteEmptyDirectory(string path);
+
+    SyncEntryContent.File CopyFile(bool isTargetLeft, string path)
     {
-        PrintMessage("COPY", leftToRight, path);
-        var (src, dest) = GetSrcDest(leftToRight, path);
+        EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
         CopyFile(src, dest);
         return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
     }
 
-    SyncEntryContent.File ReplaceFile(bool leftToRight, string path)
+    protected abstract void CopyFile(string srcPath, string destPath);
+
+    SyncEntryContent.File OverwriteFile(bool isTargetLeft, string path)
     {
-        PrintMessage("REPLACE", leftToRight, path);
-        var (src, dest) = GetSrcDest(leftToRight, path);
-        ReplaceFile(src, dest);
+        EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
+        OverwriteFile(src, dest);
         return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
     }
 
-    void DeleteFile(bool isLeft, string path)
+    protected abstract void OverwriteFile(string srcPath, string destPath);
+
+    void DeleteFile(bool isTargetLeft, string path)
     {
-        PrintMessage("DELETE", !isLeft, path);
-        DeleteFile(GetPath(isLeft, path));
+        EntryOperationStarted?.Invoke(Operation.DeleteFile, isTargetLeft, path);
+        DeleteFile(GetPath(isTargetLeft, path));
     }
 
-    static void PrintMessage(string operation, bool leftToRight, string path)
-    {
-        if (leftToRight)
-            Console.WriteLine($"[{operation,10}>] {path}");
-        else
-            Console.WriteLine($"[<{operation,-10}] {path}");
-    }
+    protected abstract void DeleteFile(string path);
 
-    string GetPath(bool isLeft, string path) => isLeft ? Path.Combine(_leftBasePath, path) : Path.Combine(_rightBasePath, path);
+    string GetPath(bool isTargetLeft, string path) => isTargetLeft ? Path.Combine(_leftBasePath, path) : Path.Combine(_rightBasePath, path);
 
-    (string src, string dest) GetSrcDest(bool leftToRight, string path)
+    (string src, string dest) GetSrcDest(bool isTargetLeft, string path)
     {
-        var (s, d) = leftToRight ? (_leftBasePath, _rightBasePath) : (_rightBasePath, _leftBasePath);
+        var (s, d) = isTargetLeft ? (_rightBasePath, _leftBasePath) : (_leftBasePath, _rightBasePath);
         return (Path.Combine(s, path), Path.Combine(d, path));
     }
     #endregion 本来の抽象クラス定義
@@ -368,7 +381,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
             }
         }
         protected override void CopyFile(string srcPath, string destPath) => File.Copy(srcPath, destPath, false);
-        protected override void ReplaceFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
+        protected override void OverwriteFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
         protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
     }
 
@@ -377,7 +390,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         protected override void CreateDirectory(string path) { }
         protected override void DeleteEmptyDirectory(string path) { }
         protected override void CopyFile(string srcPath, string destPath) { }
-        protected override void ReplaceFile(string srcPath, string destPath) { }
+        protected override void OverwriteFile(string srcPath, string destPath) { }
         protected override void DeleteFile(string path) { }
     }
     #endregion 派生クラス群

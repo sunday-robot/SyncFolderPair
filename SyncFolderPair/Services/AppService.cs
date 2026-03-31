@@ -82,19 +82,25 @@ public static class AppService
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
-    internal static void Synchronize(string pairName)
+    internal static void Synchronize(string pairName,
+        Action<Operation, bool, string> onEntryOperationStarted,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
         var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
-        syncEntries = DirectorySynchronizer.Synchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
+        syncEntries = DirectorySynchronizer.Synchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries,
+            onEntryOperationStarted, onErrorOccurred);
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
-    internal static void CheckSynchronize(string pairName)
+    internal static void CheckSynchronize(string pairName,
+        Action<Operation, bool, string> onEntryOperationStarted,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
         var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
-        DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries);
+        DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries,
+            onEntryOperationStarted, onErrorOccurred);
     }
 
     public static IEnumerable<DifferentEntryPair> EnumerateDifferentEntries(string leftDirectory, string rightDirectory)
