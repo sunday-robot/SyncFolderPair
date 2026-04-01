@@ -18,7 +18,7 @@ SyncFolderPair align <pair name> [force|check]
 SyncFolderPair init <pair name>
 SyncFolderPair sync <pair name> [check]
 SyncFolderPair diff <left folder> <right folder>
-SyncFolderPair <commnad> <arguments>...
+SyncFolderPair list_entries <left folder> <right folder>
 ```
 
 # 基本的な使用方法
