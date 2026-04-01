@@ -84,10 +84,11 @@ public static class AppService
     /// 二つのフォルダ間に差異がないことを前提としており、差異がある場合は、その旨をユーザーに報告し、管理ファイルの作成は行わない。
     /// </summary>
     /// <param name="pairName"></param>
-    public static void InitializeSyncEntries(string pairName)
+    public static void InitializeSyncEntries(string pairName,
+        Action<string> onErrorOccurred)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
-        var syncEntries = SyncEntryInitializer.Initialize(leftDirectory, rightDirectory, ignoreEntries);
+        var syncEntries = SyncEntryInitializer.Initialize(leftDirectory, rightDirectory, ignoreEntries, onErrorOccurred);
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 

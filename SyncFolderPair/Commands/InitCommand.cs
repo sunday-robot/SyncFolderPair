@@ -16,7 +16,7 @@ public sealed class InitCommand : AbstractCommand
         if (args.Length != 1)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.InitializeSyncEntries(args[0]);
+        AppService.InitializeSyncEntries(args[0], Console.WriteLine);
 
         return 0;
     }

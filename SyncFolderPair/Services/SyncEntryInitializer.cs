@@ -4,16 +4,32 @@ using System.Diagnostics;
 
 namespace SyncFolderPair.Services;
 
-public static class SyncEntryInitializer
+public class SyncEntryInitializer(string leftBasePath, string rightBasePath)
 {
-    public static SyncEntries Initialize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries)
+    #region 公開staticメソッド群
+    public static SyncEntries Initialize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries,
+        Action<string /* message */>? errorOccurred)
     {
-        var syncEntries = CreateSyncEntries("", EntryPairs.Enumerate(leftDirectoryPath, rightDirectoryPath, path => File.GetLastWriteTimeUtc(path), ignoreEntries))
+        var initializer = new SyncEntryInitializer(leftDirectoryPath, rightDirectoryPath);
+        initializer.ErrorOccurred += errorOccurred;
+        return initializer.Initialize(ignoreEntries);
+    }
+    #endregion 公開staticメソッド群
+
+    #region 本来の抽象クラス定義
+    public event Action<string /* message */>? ErrorOccurred;
+    readonly string _leftBasePath = leftBasePath;
+    readonly string _rightBasePath = rightBasePath;
+
+    public SyncEntries Initialize(IgnoreEntries ignoreEntries)
+    {
+        var entryPairs = EntryPairs.Enumerate(_leftBasePath, _rightBasePath, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
+        var syncEntries = CreateSyncEntries("", entryPairs)
             ?? throw new Exception("Synchronization initialization failed due to directory differences.");
         return syncEntries;
     }
 
-    static SyncEntries? CreateSyncEntries(string path, IEnumerable<EntryPair> entryPairs)
+    SyncEntries? CreateSyncEntries(string path, IEnumerable<EntryPair> entryPairs)
     {
         var syncEntries = new SyncEntries();
         var errorOccurred = false;
@@ -32,28 +48,28 @@ public static class SyncEntryInitializer
         return syncEntries;
     }
 
-    static SyncEntryContent? CreateSyncEntry(string path, EntryPair entryPair)
+    SyncEntryContent? CreateSyncEntry(string path, EntryPair entryPair)
     {
         switch (entryPair)
         {
             case EntryPair.NoneDir:
             case EntryPair.NoneFile:
                 // エラー。右にしかない
-                Console.WriteLine($"Error: Right only : {path}");
+                ErrorOccurred?.Invoke($"Error: Right only : {path}");
                 return null;
             case EntryPair.DirNone:
             case EntryPair.FileNone:
                 // エラー。左にしかない
-                Console.WriteLine($"Error: Left only : {path}");
+                ErrorOccurred?.Invoke($"Error: Left only : {path}");
                 return null;
 
             case EntryPair.DirFile:
                 // エラー。左がディレクトリ、右がファイル
-                Console.WriteLine($"Error: Left is directory, right is file : {path}");
+                ErrorOccurred?.Invoke($"Error: Left is directory, right is file : {path}");
                 return null;
             case EntryPair.FileDir:
                 // エラー。左がファイル、右がディレクトリ
-                Console.WriteLine($"Error: Left is file, right is directory : {path}");
+                ErrorOccurred?.Invoke($"Error: Left is file, right is directory : {path}");
                 return null;
 
             case EntryPair.DirDir x:
@@ -71,9 +87,9 @@ public static class SyncEntryInitializer
                 {
                     // エラー。別ファイルである(更新日時が異なる)
                     if (lt > rt)
-                        Console.WriteLine($"Error: Left is newer : {path} (left: {lt}, right: {rt})");
+                        ErrorOccurred?.Invoke($"Error: Left is newer : {path} (left: {lt}, right: {rt})");
                     else
-                        Console.WriteLine($"Error: Right is newer : {path} (left: {lt}, right: {rt})");
+                        ErrorOccurred?.Invoke($"Error: Right is newer : {path} (left: {lt}, right: {rt})");
                     return null;
                 }
                 return new SyncEntryContent.File(lt);
@@ -81,4 +97,5 @@ public static class SyncEntryInitializer
                 throw new UnreachableException();
         }
     }
+    #endregion 本来の抽象クラス定義
 }
