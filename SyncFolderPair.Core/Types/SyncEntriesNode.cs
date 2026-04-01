@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace SyncFolderPair.Types;
+namespace SyncFolderPair.Core.Types;
 
 public class SyncEntries() : Dictionary<string, SyncEntryContent>(StringComparer.OrdinalIgnoreCase)
 {

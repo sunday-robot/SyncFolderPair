@@ -1,5 +1,5 @@
-﻿using SyncFolderPair.Services;
-using SyncFolderPair.Types;
+﻿using SyncFolderPair.Core;
+using SyncFolderPair.Core.Types;
 
 namespace SyncFolderPair.Commands;
 
@@ -16,7 +16,7 @@ public sealed class DiffCommand : AbstractCommand
         if (args.Length != 2)
             throw new ArgumentException("Parameter count error.");
 
-        Print("", AppService.EnumerateDifferentEntries(args[0], args[1]));
+        Print("", Core.Core.EnumerateDifferentEntries(args[0], args[1]));
 
         return 0;
     }

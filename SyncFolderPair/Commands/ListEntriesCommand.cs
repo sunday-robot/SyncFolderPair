@@ -1,5 +1,5 @@
-﻿using SyncFolderPair.Services;
-using SyncFolderPair.Types;
+﻿using SyncFolderPair.Core;
+using SyncFolderPair.Core.Types;
 
 namespace SyncFolderPair.Commands;
 
@@ -16,7 +16,7 @@ public sealed class ListEntriesCommand : AbstractCommand
         if (args.Length != 2)
             throw new ArgumentException("Parameter count error.");
 
-        Print("", AppService.EnumerateEntries(args[0], args[1]));
+        Print("", Core.Core.EnumerateEntries(args[0], args[1]));
 
         return 0;
     }

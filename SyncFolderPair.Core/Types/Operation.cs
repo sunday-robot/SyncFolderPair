@@ -1,4 +1,4 @@
-﻿namespace SyncFolderPair.Types;
+﻿namespace SyncFolderPair.Core.Types;
 
 /// <summary>
 /// 処理進捗通知用のもの

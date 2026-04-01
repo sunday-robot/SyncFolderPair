@@ -1,7 +1,7 @@
-﻿using SyncFolderPair.Types;
+﻿using SyncFolderPair.Core.Types;
 using System.Diagnostics;
 
-namespace SyncFolderPair.Commands
+namespace SyncFolderPair
 {
     public static class ProgressPrinter
     {

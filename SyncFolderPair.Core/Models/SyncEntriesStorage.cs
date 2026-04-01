@@ -1,8 +1,8 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
+using SyncFolderPair.Core.Utils;
 using System.Text.Json;
 
-namespace SyncFolderPair.Models;
+namespace SyncFolderPair.Core.Models;
 
 public static class SyncEntriesStorage
 {

@@ -1,13 +1,13 @@
 ﻿#pragma warning disable SYSLIB1045 // 'GeneratedRegexAttribute' に変換します。
 
-using SyncFolderPair.Models;
-using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+using SyncFolderPair.Core.Models;
+using SyncFolderPair.Core.Services;
+using SyncFolderPair.Core.Types;
 using System.Text.RegularExpressions;
 
-namespace SyncFolderPair.Services;
+namespace SyncFolderPair.Core;
 
-public static class AppService
+public static class Core
 {
     static readonly Regex _pairNameRegex = new("^[A-Za-z0-9_\\-\\(\\)\\.,]+$"); // 英数字、アンダースコア、ハイフン、丸括弧、ドット、カンマのみ許可
 
@@ -15,10 +15,10 @@ public static class AppService
     /// ディレクトリペアを追加する。<br/>
     /// </summary>
     /// <param name="pairName"></param>
-    /// <param name="leftDirectory"></param>
-    /// <param name="rightDirectory"></param>
+    /// <param name="leftDirectoryPath"></param>
+    /// <param name="rightDirectoryPath"></param>
     /// <exception cref="Exception"></exception>
-    public static void AddDirectoryPair(string pairName, string leftDirectory, string rightDirectory)
+    public static void AddDirectoryPair(string pairName, string leftDirectoryPath, string rightDirectoryPath)
     {
         // ペア名の検証
         pairName = pairName.Trim();
@@ -26,29 +26,32 @@ public static class AppService
             throw new Exception($"不正な名前です: {pairName}");
 
         // フォルダの検証
-        leftDirectory = Path.GetFullPath(leftDirectory);
-        rightDirectory = Path.GetFullPath(rightDirectory);
-        if (!Directory.Exists(leftDirectory))
-            throw new Exception($"Left directory does not exist: {leftDirectory}");
-        if (!Directory.Exists(rightDirectory))
-            throw new Exception($"Right directory does not exist: {rightDirectory}");
+        leftDirectoryPath = Path.GetFullPath(leftDirectoryPath);
+        rightDirectoryPath = Path.GetFullPath(rightDirectoryPath);
+        if (!Directory.Exists(leftDirectoryPath))
+            throw new Exception($"Left directory does not exist: {leftDirectoryPath}");
+        if (!Directory.Exists(rightDirectoryPath))
+            throw new Exception($"Right directory does not exist: {rightDirectoryPath}");
 
         // 保存(重複チェックはここで行う)
-        DirectoryPairStorage.Set(pairName, leftDirectory, rightDirectory);
+        DirectoryPairStorage.Set(pairName, leftDirectoryPath, rightDirectoryPath);
     }
 
+    /// <summary>
+    /// ディレクトリペアを削除する
+    /// </summary>
+    /// <param name="pairName"></param>
     public static void DeleteDirectoryPair(string pairName)
     {
         DirectoryPairStorage.Delete(pairName);
         SyncEntriesStorage.Delete(pairName);
     }
 
-    public static void AddIgnoreDirectories(string pairName, Span<string> ignoreDirectoryPaths) => DirectoryPairStorage.AddIgnoreDirectoryPaths(pairName, ignoreDirectoryPaths);
+    public static void AddIgnoreDirectories(string pairName, Span<string> ignoreDirectoryPaths)
+        => DirectoryPairStorage.AddIgnoreDirectoryPaths(pairName, ignoreDirectoryPaths);
 
     public static IEnumerable<(string, string, string, IgnoreEntries)> EnumeratePairs()
-    {
-        return DirectoryPairStorage.Enumerate();
-    }
+        => DirectoryPairStorage.Enumerate();
 
     public static void AlignDirectoryPair(string pairName,
         Action<Operation, bool, string> onEntryOperationStarted,
@@ -92,7 +95,7 @@ public static class AppService
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
-    internal static void Synchronize(string pairName,
+    public static void Synchronize(string pairName,
         Action<Operation, bool, string> onEntryOperationStarted,
         Action<string> onErrorOccurred)
     {
@@ -103,7 +106,7 @@ public static class AppService
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
-    internal static void CheckSynchronize(string pairName,
+    public static void CheckSynchronize(string pairName,
         Action<Operation, bool, string> onEntryOperationStarted,
         Action<string> onErrorOccurred)
     {
@@ -114,12 +117,8 @@ public static class AppService
     }
 
     public static IEnumerable<DifferentEntryPair> EnumerateDifferentEntries(string leftDirectory, string rightDirectory)
-    {
-        return DifferentEntryEnumerator.Enumerate(leftDirectory, rightDirectory);
-    }
+       => DifferentEntriesEnumerator.Enumerate(leftDirectory, rightDirectory);
 
     public static IEnumerable<EntryPair> EnumerateEntries(string leftDirectory, string rightDirectory)
-    {
-        return EntryPairs.Enumerate(leftDirectory, rightDirectory, path => null, new IgnoreEntries());
-    }
+        => EntryPairsEnumerator.Enumerate(path => null, leftDirectory, rightDirectory, new IgnoreEntries());
 }

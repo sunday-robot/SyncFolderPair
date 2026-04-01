@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Services;
+﻿using SyncFolderPair.Core;
 
 namespace SyncFolderPair.Commands;
 
@@ -16,7 +16,7 @@ public sealed class InitCommand : AbstractCommand
         if (args.Length != 1)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.InitializeSyncEntries(args[0], Console.WriteLine);
+        Core.Core.InitializeSyncEntries(args[0], Console.WriteLine);
 
         return 0;
     }

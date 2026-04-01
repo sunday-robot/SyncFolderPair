@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Services;
+﻿using SyncFolderPair.Core;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,7 +15,7 @@ public sealed class DeleteCommand : AbstractCommand
         if (args.Length != 1)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.DeleteDirectoryPair(args[0]);
+        Core.Core.DeleteDirectoryPair(args[0]);
 
         return 0;
     }

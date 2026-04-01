@@ -55,110 +55,110 @@
     "WD30____________": {
       "commandName": "Project"
     },
-    "add wd30movie": {
+    "add wd30": {
       "commandName": "Project",
-      "commandLineArgs": "add wd30movie J:\\movie K:\\movie"
+      "commandLineArgs": "add wd30 J:\\movie K:\\movie"
     },
-    "align wd30movie check": {
+    "align wd30 check": {
       "commandName": "Project",
-      "commandLineArgs": "align wd30movie check"
+      "commandLineArgs": "align wd30 check"
     },
-    "align wd30movie": {
+    "align wd30": {
       "commandName": "Project",
-      "commandLineArgs": "align wd30movie"
+      "commandLineArgs": "align wd30"
     },
-    "init ws30movie": {
+    "init ws30": {
       "commandName": "Project",
-      "commandLineArgs": "init wd30movie"
+      "commandLineArgs": "init wd30"
     },
-    "sync ws30movie check": {
+    "sync ws30 check": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd30movie check"
+      "commandLineArgs": "sync wd30 check"
     },
-    "sync ws30movie": {
+    "sync ws30": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd30movie"
+      "commandLineArgs": "sync wd30"
     },
     "ST4000____________": {
       "commandName": "Project"
     },
-    "add st4000movie": {
+    "add st4000": {
       "commandName": "Project",
-      "commandLineArgs": "add st4000movie H:\\movie I:\\movie"
+      "commandLineArgs": "add st4000 H:\\movie I:\\movie"
     },
-    "align st4000movie check": {
+    "align st4000 check": {
       "commandName": "Project",
-      "commandLineArgs": "align st4000movie check"
+      "commandLineArgs": "align st4000 check"
     },
-    "align st4000movie": {
+    "align st4000": {
       "commandName": "Project",
-      "commandLineArgs": "align st4000movie"
+      "commandLineArgs": "align st4000"
     },
-    "init st4000movie": {
+    "init st4000": {
       "commandName": "Project",
-      "commandLineArgs": "init st4000movie"
+      "commandLineArgs": "init st4000"
     },
-    "sync st4000movie check": {
+    "sync st4000 check": {
       "commandName": "Project",
-      "commandLineArgs": "sync st4000movie check"
+      "commandLineArgs": "sync st4000 check"
     },
-    "sync st4000movie": {
+    "sync st4000": {
       "commandName": "Project",
-      "commandLineArgs": "sync st4000movie"
+      "commandLineArgs": "sync st4000"
     },
     "WD60____________": {
       "commandName": "Project"
     },
-    "add wd60movie": {
+    "add wd60": {
       "commandName": "Project",
-      "commandLineArgs": "add wd60movie E:\\movie G:\\movie"
+      "commandLineArgs": "add wd60 E:\\movie G:\\movie"
     },
-    "align ws60movie check": {
+    "align ws60 check": {
       "commandName": "Project",
-      "commandLineArgs": "align wd60movie check"
+      "commandLineArgs": "align wd60 check"
     },
-    "align wd60movie": {
+    "align wd60": {
       "commandName": "Project",
-      "commandLineArgs": "align wd60movie"
+      "commandLineArgs": "align wd60"
     },
-    "init ws60movie": {
+    "init ws60": {
       "commandName": "Project",
-      "commandLineArgs": "init wd60movie"
+      "commandLineArgs": "init wd60"
     },
     "sync wd60 check": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd60movie check"
+      "commandLineArgs": "sync wd60 check"
     },
     "sync wd60": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd60movie"
+      "commandLineArgs": "sync wd60"
     },
     "WD80____________": {
       "commandName": "Project"
     },
-    "add wd80movie": {
+    "add wd80": {
       "commandName": "Project",
-      "commandLineArgs": "add wd80movie M:\\movie L:\\movie"
+      "commandLineArgs": "add wd80 M:\\movie L:\\movie"
     },
-    "align ws80movie check": {
+    "align ws80 check": {
       "commandName": "Project",
-      "commandLineArgs": "align wd80movie check"
+      "commandLineArgs": "align wd80 check"
     },
-    "align wd80movie": {
+    "align wd80": {
       "commandName": "Project",
-      "commandLineArgs": "align wd80movie"
+      "commandLineArgs": "align wd80"
     },
-    "init ws80movie": {
+    "init ws80": {
       "commandName": "Project",
-      "commandLineArgs": "init wd80movie"
+      "commandLineArgs": "init wd80"
     },
     "sync wd80 check": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd80movie check"
+      "commandLineArgs": "sync wd80 check"
     },
     "sync wd80": {
       "commandName": "Project",
-      "commandLineArgs": "sync wd80movie"
+      "commandLineArgs": "sync wd80"
     },
     "WD80_work___________": {
       "commandName": "Project"

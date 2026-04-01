@@ -1,4 +1,4 @@
-﻿namespace SyncFolderPair.Models;
+﻿namespace SyncFolderPair.Core.Models;
 
 public static class App
 {

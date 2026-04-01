@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Win32Api;
 
-namespace SyncFolderPair.Utils;
+namespace SyncFolderPair.Core.Utils;
 
 public static class RecycleBin
 {

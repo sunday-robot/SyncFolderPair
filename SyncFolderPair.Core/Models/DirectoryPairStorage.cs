@@ -1,8 +1,8 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
+using SyncFolderPair.Core.Utils;
 using System.Text.Json;
 
-namespace SyncFolderPair.Models;
+namespace SyncFolderPair.Core.Models;
 
 /// <summary>
 /// ディレクトリペアのModel<br/>
@@ -25,7 +25,7 @@ public static class DirectoryPairStorage
         var pair = pairs.FirstOrDefault(p => p.Name == name)
             ?? throw new Exception($"Pair not found: {name}");
 
-        return (pair.LeftDirectory, pair.RightDirectory, pair.IgnoreDirectories);
+        return (pair.LeftDirectoryPath, pair.RightDirectoryPath, pair.IgnoreEntries);
     }
 
     /// <summary>
@@ -33,17 +33,17 @@ public static class DirectoryPairStorage
     /// 無視ディレクトリ集合は空で追加する。
     /// </summary>
     /// <param name="name"></param>
-    /// <param name="leftDirectory"></param>
-    /// <param name="rightDirectory"></param>
+    /// <param name="leftDirectoryPath"></param>
+    /// <param name="rightDirectoryPath"></param>
     /// <exception cref="Exception"></exception>
-    public static void Set(string name, string leftDirectory, string rightDirectory)
+    public static void Set(string name, string leftDirectoryPath, string rightDirectoryPath)
     {
         var pairs = Load(GetFilePath());
         if (pairs.Any(p => p.Name == name))
             throw new Exception($"Pair already exists: {name}");
         var newPairs = new List<DirectoryPair>(pairs)
         {
-            new(name, leftDirectory, rightDirectory)
+            new(name, leftDirectoryPath, rightDirectoryPath)
         };
         JsonSaver.Save(GetFilePath(), newPairs);
     }
@@ -75,7 +75,7 @@ public static class DirectoryPairStorage
         var pairs = Load(GetFilePath());
         foreach (var pair in pairs)
         {
-            yield return (pair.Name, pair.LeftDirectory, pair.RightDirectory, pair.IgnoreDirectories);
+            yield return (pair.Name, pair.LeftDirectoryPath, pair.RightDirectoryPath, pair.IgnoreEntries);
         }
     }
 
@@ -92,7 +92,7 @@ public static class DirectoryPairStorage
             ?? throw new Exception($"Pair not found: {name}");
         foreach (var path in ignoreDirectoryPaths)
         {
-            pair.IgnoreDirectories.Add(path);
+            pair.IgnoreEntries.Add(path);
         }
         JsonSaver.Save(GetFilePath(), pairs);
     }

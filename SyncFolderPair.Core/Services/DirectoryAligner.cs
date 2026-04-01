@@ -1,7 +1,7 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
+using SyncFolderPair.Core.Utils;
 
-namespace SyncFolderPair.Services;
+namespace SyncFolderPair.Core.Services;
 
 public abstract class DirectoryAligner(bool forceMode, string leftBasePath, string rightBasePath)
 {
@@ -47,7 +47,7 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
 
     void Align(IgnoreEntries ignoreEntries)
     {
-        var entryPairs = EntryPairs.Enumerate(_leftBasePath, _rightBasePath, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
+        var entryPairs = EntryPairsEnumerator.Enumerate(path => File.GetLastWriteTimeUtc(path), _leftBasePath, _rightBasePath, ignoreEntries);
         AlignEntryPairs("", entryPairs);
     }
 
@@ -102,10 +102,10 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
         }
     }
 
-    void CreateDirectory(bool isLeft, string path)
+    void CreateDirectory(bool isTargetLeft, string path)
     {
-        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isLeft, path);
-        var srcBase = isLeft ? _leftBasePath : _rightBasePath;
+        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isTargetLeft, path);
+        var srcBase = isTargetLeft ? _leftBasePath : _rightBasePath;
         var p = Path.Combine(srcBase, path);
         CreateDirectory(p);
     }

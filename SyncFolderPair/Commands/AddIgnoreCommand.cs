@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Services;
+﻿using SyncFolderPair.Core;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,7 +15,7 @@ public sealed class AddIgnoreCommand : AbstractCommand
         if (args.Length < 2)
             throw new ArgumentException("Parameter count error.");
 
-        AppService.AddIgnoreDirectories(args[0], args[1..args.Length]);
+        Core.Core.AddIgnoreDirectories(args[0], args[1..args.Length]);
 
         return 0;
     }

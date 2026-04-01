@@ -1,5 +1,5 @@
-﻿using SyncFolderPair.Services;
-using SyncFolderPair.Types;
+﻿using SyncFolderPair.Core;
+using SyncFolderPair.Core.Types;
 
 namespace SyncFolderPair.Commands;
 
@@ -16,7 +16,7 @@ public sealed class ListCommand : AbstractCommand
         if (args.Length != 0)
             throw new ArgumentException("Parameter count error.");
 
-        foreach (var (name, left, right, ignoreDirectorySet) in AppService.EnumeratePairs())
+        foreach (var (name, left, right, ignoreDirectorySet) in Core.Core.EnumeratePairs())
         {
             Console.WriteLine($"{name}:");
             Console.WriteLine($"  left  : {left}");

@@ -1,4 +1,4 @@
-﻿namespace SyncFolderPair.Types;
+﻿namespace SyncFolderPair.Core.Types;
 
 public abstract record DifferentEntryPair(string Name)
 {

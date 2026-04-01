@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Services;
+﻿using SyncFolderPair.Core;
 
 namespace SyncFolderPair.Commands;
 
@@ -30,17 +30,17 @@ public sealed class AlignCommand : AbstractCommand
         {
             case 1:
                 // 片方のディレクトリにだけあるファイルをもう片方にコピーするだけ
-                AppService.AlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
+                Core.Core.AlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
                 break;
             case 2:
                 switch (args[1])
                 {
                     case "force":
                         // 両方のディレクトリにあるファイルも、更新日時が新しい方で上書きコピーする
-                        AppService.ForceAlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
+                        Core.Core.ForceAlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
                         break;
                     case "check":
-                        AppService.CheckAlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
+                        Core.Core.CheckAlignDirectoryPair(args[0], ProgressPrinter.Print, Console.WriteLine);
                         break;
                     default:
                         throw new ArgumentException($"Wrong option [{args[1]}].");

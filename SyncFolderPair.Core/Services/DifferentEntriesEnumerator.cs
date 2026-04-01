@@ -1,19 +1,16 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
 using System.Diagnostics;
 
-namespace SyncFolderPair.Services;
+namespace SyncFolderPair.Core.Services;
 
 /// <summary>
 /// 二つのディレクトリで差異(*)のあるファイルを列挙するもの。<br/>
 /// (*) ファイルの内容比較などはせず、単に更新日時が違う場合に差異があるとするだけ。
 /// </summary>
-public static class DifferentEntryEnumerator
+public static class DifferentEntriesEnumerator
 {
     public static IEnumerable<DifferentEntryPair> Enumerate(string leftDirectoryPath, string rightDirectoryPath)
-    {
-        return Enumerate("", EntryPairs.Enumerate(leftDirectoryPath, rightDirectoryPath, path => File.GetLastWriteTimeUtc(path)));
-    }
+        => Enumerate("", EntryPairsEnumerator.Enumerate(path => File.GetLastWriteTimeUtc(path), leftDirectoryPath, rightDirectoryPath));
 
     static IEnumerable<DifferentEntryPair> Enumerate(string path, IEnumerable<EntryPair> entryPairEnumerable)
     {

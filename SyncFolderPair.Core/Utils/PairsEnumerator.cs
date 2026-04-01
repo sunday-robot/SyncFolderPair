@@ -1,6 +1,6 @@
-﻿namespace SyncFolderPair.Utils;
+﻿namespace SyncFolderPair.Core.Utils;
 
-public static class PairEnumerator
+public static class PairsEnumerator
 {
     public static IEnumerable<(T? Left, T? Right)> Enumerate<T>(IEnumerable<T> left, IEnumerable<T> right, Comparison<T> comparison)
     {

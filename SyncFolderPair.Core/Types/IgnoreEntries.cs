@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace SyncFolderPair.Types;
+namespace SyncFolderPair.Core.Types;
 
 /// <summary>
 /// 派生クラスをきちんとシリアライズ/デシリアライズするための指定

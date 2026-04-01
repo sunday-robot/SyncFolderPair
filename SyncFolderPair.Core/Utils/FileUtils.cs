@@ -1,4 +1,4 @@
-﻿namespace SyncFolderPair.Utils;
+﻿namespace SyncFolderPair.Core.Utils;
 
 public static class FileUtils
 {

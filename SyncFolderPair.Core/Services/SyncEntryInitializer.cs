@@ -1,8 +1,7 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
 using System.Diagnostics;
 
-namespace SyncFolderPair.Services;
+namespace SyncFolderPair.Core.Services;
 
 public class SyncEntryInitializer(string leftBasePath, string rightBasePath)
 {
@@ -16,14 +15,14 @@ public class SyncEntryInitializer(string leftBasePath, string rightBasePath)
     }
     #endregion 公開staticメソッド群
 
-    #region 本来の抽象クラス定義
+    #region 通常のクラス定義
     public event Action<string /* message */>? ErrorOccurred;
     readonly string _leftBasePath = leftBasePath;
     readonly string _rightBasePath = rightBasePath;
 
     public SyncEntries Initialize(IgnoreEntries ignoreEntries)
     {
-        var entryPairs = EntryPairs.Enumerate(_leftBasePath, _rightBasePath, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
+        var entryPairs = EntryPairsEnumerator.Enumerate(path => File.GetLastWriteTimeUtc(path), _leftBasePath, _rightBasePath, ignoreEntries);
         var syncEntries = CreateSyncEntries("", entryPairs)
             ?? throw new Exception("Synchronization initialization failed due to directory differences.");
         return syncEntries;
@@ -97,5 +96,5 @@ public class SyncEntryInitializer(string leftBasePath, string rightBasePath)
                 throw new UnreachableException();
         }
     }
-    #endregion 本来の抽象クラス定義
+    #endregion 通常のクラス定義
 }

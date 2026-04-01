@@ -1,4 +1,4 @@
-﻿using SyncFolderPair.Services;
+﻿using SyncFolderPair.Core;
 
 namespace SyncFolderPair.Commands;
 
@@ -15,12 +15,12 @@ public sealed class SyncCommand : AbstractCommand
         switch (args.Length)
         {
             case 1:
-                AppService.Synchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
+                Core.Core.Synchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
                 break;
             case 2:
                 if (args[1] != "check")
                     throw new ArgumentException("Invalid parameter.");
-                AppService.CheckSynchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
+                Core.Core.CheckSynchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
                 break;
             default:
                 throw new ArgumentException("Parameter count error.");

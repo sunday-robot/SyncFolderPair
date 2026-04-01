@@ -1,11 +1,11 @@
-﻿using SyncFolderPair.Types;
-using SyncFolderPair.Utils;
+﻿using SyncFolderPair.Core.Types;
+using SyncFolderPair.Core.Utils;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Win32Api;
 
-namespace SyncFolderPair.Services;
+namespace SyncFolderPair.Core.Services;
 
 public abstract class DirectorySynchronizer(string leftBasePath, string rightBasePath)
 {
@@ -57,7 +57,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
 
     public SyncEntries Synchronize(IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
-        var entryPairs = EntryPairs.Enumerate(_leftBasePath, _rightBasePath, path => File.GetLastWriteTimeUtc(path), ignoreEntries);
+        var entryPairs = EntryPairsEnumerator.Enumerate(path => File.GetLastWriteTimeUtc(path), _leftBasePath, _rightBasePath, ignoreEntries);
         return SynchronizeEntryPairs("", entryPairs, oldSyncEntries);
     }
 
