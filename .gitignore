@@ -8,3 +8,5 @@
 /test
 /SyncFolderPair/SyncFolderPair.csproj.user
 /SyncFolderPair/Properties/PublishProfiles/FolderProfile.pubxml.user
+/SyncFolderPair.Core/bin
+/SyncFolderPair.Core/obj
