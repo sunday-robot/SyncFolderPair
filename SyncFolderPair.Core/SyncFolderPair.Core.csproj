@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Win32\Win32Api.csproj" />
+    <ProjectReference Include="..\Win32\Win32Api.csproj" />
   </ItemGroup>
 
 </Project>
