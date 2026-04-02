@@ -1,8 +1,10 @@
-﻿namespace SyncFolderPair.Core.Utils;
+﻿using SyncFolderPair.Core.Types;
+
+namespace SyncFolderPair.Core.Utils;
 
 public static class PairsEnumerator
 {
-    public static IEnumerable<(T? Left, T? Right)> Enumerate<T>(IEnumerable<T> left, IEnumerable<T> right, Comparison<T> comparison)
+    public static IEnumerable<Pair<T>> Enumerate<T>(IEnumerable<T> left, IEnumerable<T> right, Comparison<T> comparison)
     {
         var leftArray = left.ToArray();
         var rightArray = right.ToArray();
@@ -15,15 +17,15 @@ public static class PairsEnumerator
         {
             var cmp = comparison(leftArray[li], rightArray[ri]);
             if (cmp < 0)
-                yield return (leftArray[li++], default);
+                yield return new Pair<T>.Left(leftArray[li++]);
             else if (cmp == 0)
-                yield return (leftArray[li++], rightArray[ri++]);
+                yield return new Pair<T>.Both(leftArray[li++], rightArray[ri++]);
             else
-                yield return (default, rightArray[ri++]);
+                yield return new Pair<T>.Right(rightArray[ri++]);
         }
         while (li < leftArray.Length)
-            yield return (leftArray[li++], default);
+            yield return new Pair<T>.Left(leftArray[li++]);
         while (ri < rightArray.Length)
-            yield return (default, rightArray[ri++]);
+            yield return new Pair<T>.Right(rightArray[ri++]);
     }
 }

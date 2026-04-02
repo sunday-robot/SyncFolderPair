@@ -1,6 +1,4 @@
-﻿using SyncFolderPair.Core;
-
-namespace SyncFolderPair.Commands;
+﻿namespace SyncFolderPair.Commands;
 
 /// <summary>
 /// 設定ファイルから、フォルダペアを削除する

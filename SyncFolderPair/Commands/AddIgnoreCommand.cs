@@ -1,6 +1,4 @@
-﻿using SyncFolderPair.Core;
-
-namespace SyncFolderPair.Commands;
+﻿namespace SyncFolderPair.Commands;
 
 /// <summary>
 /// フォルダーペアに、無視するディレクトリを追加する。

@@ -1,5 +1,4 @@
-﻿using SyncFolderPair.Core;
-using SyncFolderPair.Core.Types;
+﻿using SyncFolderPair.Core.Types;
 
 namespace SyncFolderPair.Commands;
 

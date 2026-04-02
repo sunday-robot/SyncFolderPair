@@ -7,7 +7,7 @@ using Win32Api;
 
 namespace SyncFolderPair.Core.Services;
 
-public abstract class DirectorySynchronizer(string leftBasePath, string rightBasePath)
+public abstract class DirectorySynchronizer(string leftBasePath, string rightBasePath, CancellationToken cancellationToken)
 {
     #region 公開staticメソッド群
     /// <summary>
@@ -20,9 +20,10 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     /// <returns>今回の更新結果</returns>
     public static SyncEntries Synchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries,
         Action<Operation, bool /* isTargetLeft */, string /*path*/> entryOperationStarted,
-        Action<string /* message */>? errorOccurred)
+        Action<string /* message */>? errorOccurred,
+        CancellationToken cancellationToken)
     {
-        var synchronizer = new Synchronizer(leftDirectoryPath, rightDirectoryPath);
+        var synchronizer = new Synchronizer(leftDirectoryPath, rightDirectoryPath, cancellationToken);
         synchronizer.EntryOperationStarted += entryOperationStarted;
         synchronizer.ErrorOccurred += errorOccurred;
         return synchronizer.Synchronize(ignoreEntries, oldSyncEntries);
@@ -37,9 +38,10 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     /// <param name="oldSyncEntries">前回の更新結果</param>
     public static void CheckSynchronize(string leftDirectoryPath, string rightDirectoryPath, IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries,
         Action<Operation, bool /* isTargetLeft */, string /*path*/> entryOperationStarted,
-        Action<string /* message */>? errorOccurred)
+        Action<string /* message */>? errorOccurred,
+        CancellationToken cancellationToken)
     {
-        var checker = new Checker(leftDirectoryPath, rightDirectoryPath);
+        var checker = new Checker(leftDirectoryPath, rightDirectoryPath, cancellationToken);
         checker.EntryOperationStarted += entryOperationStarted;
         checker.ErrorOccurred += errorOccurred;
         checker.Synchronize(ignoreEntries, oldSyncEntries);
@@ -47,25 +49,43 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     #endregion 公開staticメソッド群
 
     #region 本来の抽象クラス定義
-    static readonly SyncEntries _emptySyncEntries = [];
 
-    public event Action<Operation, bool /* isTargetLeft */, string /* path */>? EntryOperationStarted;
-    public event Action<string /* message */>? ErrorOccurred;
+    #region 公開メンバ
+    event Action<Operation, bool /* isTargetLeft */, string /* path */>? EntryOperationStarted;
+    event Action<string /* message */>? ErrorOccurred;
 
-    readonly string _leftBasePath = leftBasePath;
-    readonly string _rightBasePath = rightBasePath;
-
-    public SyncEntries Synchronize(IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
+    SyncEntries Synchronize(IgnoreEntries ignoreEntries, SyncEntries oldSyncEntries)
     {
         var entryPairs = EntryPairsEnumerator.Enumerate(path => File.GetLastWriteTimeUtc(path), _leftBasePath, _rightBasePath, ignoreEntries);
         return SynchronizeEntryPairs("", entryPairs, oldSyncEntries);
     }
+    #endregion 公開メンバ
 
+    #region 抽象メソッド
+    protected abstract void CreateDirectory(string path);
+    protected abstract void DeleteEmptyDirectory(string path);
+    protected abstract void CopyFile(string srcPath, string destPath);
+    protected abstract void OverwriteFile(string srcPath, string destPath);
+    protected abstract void DeleteFile(string path);
+    #endregion
+
+    #region 定数
+    static readonly SyncEntries _emptySyncEntries = [];
+    #endregion 定数
+
+    #region メンバ変数
+    readonly string _leftBasePath = leftBasePath;
+    readonly string _rightBasePath = rightBasePath;
+    readonly CancellationToken _cancellationToken = cancellationToken;
+    #endregion
+
+    #region 通常のメソッド
     SyncEntries SynchronizeEntryPairs(string path, IEnumerable<EntryPair> entryPairs, SyncEntries oldSyncEntries)
     {
         var newSyncEntries = new SyncEntries();
         foreach (var entryPair in entryPairs)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             var newSyncEntryContent = SynchronizeEntryPair(Path.Combine(path, entryPair.Name), entryPair, oldSyncEntries.Get(entryPair.Name));
             if (newSyncEntryContent != null)
                 newSyncEntries.Add(entryPair.Name, newSyncEntryContent);
@@ -253,6 +273,82 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     }
 
     /// <summary>
+    /// entryPairsに記載されているディレクトリ、ファイルを削除する。<br/>
+    /// ただし、ディレクトリに関しては、空になった場合にのみ削除する。<br/>
+    /// </summary>
+    void DeleteDirectory(bool isTargetLeft, string path, IEnumerable<EntryPair> entryPairs)
+    {
+        foreach (var entryPair in entryPairs)
+            DeleteEntry(Path.Combine(path, entryPair.Name), entryPair);
+        DeleteEmptyDirectory(isTargetLeft, path);
+    }
+
+    void DeleteEntry(string path, EntryPair entryPair)
+    {
+        switch (entryPair)
+        {
+            case EntryPair.NoneDir x:
+                DeleteDirectory(false, path, x.Children);
+                break;
+            case EntryPair.DirNone x:
+                DeleteDirectory(true, path, x.Children);
+                break;
+            case EntryPair.NoneFile:
+                DeleteFile(false, path);
+                break;
+            case EntryPair.FileNone:
+                DeleteFile(true, path);
+                break;
+            default:
+                throw new UnreachableException();
+        }
+    }
+
+    void CreateDirectory(bool isTargetLeft, string path)
+    {
+        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isTargetLeft, path);
+        CreateDirectory(GetPath(isTargetLeft, path));
+    }
+
+    void DeleteEmptyDirectory(bool isTargetLeft, string path)
+    {
+        EntryOperationStarted?.Invoke(Operation.DeleteDirectory, isTargetLeft, path);
+        DeleteEmptyDirectory(GetPath(isTargetLeft, path));
+    }
+
+    SyncEntryContent.File CopyFile(bool isTargetLeft, string path)
+    {
+        EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
+        CopyFile(src, dest);
+        return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
+    }
+
+    SyncEntryContent.File OverwriteFile(bool isTargetLeft, string path)
+    {
+        EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
+        var (src, dest) = GetSrcDest(isTargetLeft, path);
+        OverwriteFile(src, dest);
+        return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
+    }
+
+    void DeleteFile(bool isTargetLeft, string path)
+    {
+        EntryOperationStarted?.Invoke(Operation.DeleteFile, isTargetLeft, path);
+        DeleteFile(GetPath(isTargetLeft, path));
+    }
+
+    string GetPath(bool isTargetLeft, string path) => isTargetLeft ? Path.Combine(_leftBasePath, path) : Path.Combine(_rightBasePath, path);
+
+    (string src, string dest) GetSrcDest(bool isTargetLeft, string path)
+    {
+        var (s, d) = isTargetLeft ? (_rightBasePath, _leftBasePath) : (_leftBasePath, _rightBasePath);
+        return (Path.Combine(s, path), Path.Combine(d, path));
+    }
+    #endregion 通常のメソッド
+
+    #region staticメソッド
+    /// <summary>
     /// entryPairsに記載されているディレクトリ、ファイルが更新されているかどうかを返す。<br/>
     /// </summary>
     /// <param name="path"></param>
@@ -293,94 +389,11 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
             _ => throw new UnreachableException(),
         };
     }
-
-    /// <summary>
-    /// entryPairsに記載されているディレクトリ、ファイルを削除する。<br/>
-    /// ただし、ディレクトリに関しては、空になった場合にのみ削除する。<br/>
-    /// </summary>
-    void DeleteDirectory(bool isTargetLeft, string path, IEnumerable<EntryPair> entryPairs)
-    {
-        foreach (var entryPair in entryPairs)
-            DeleteEntry(Path.Combine(path, entryPair.Name), entryPair);
-        DeleteEmptyDirectory(isTargetLeft, path);
-    }
-
-    void DeleteEntry(string path, EntryPair entryPair)
-    {
-        switch (entryPair)
-        {
-            case EntryPair.NoneDir x:
-                DeleteDirectory(false, path, x.Children);
-                break;
-            case EntryPair.DirNone x:
-                DeleteDirectory(true, path, x.Children);
-                break;
-            case EntryPair.NoneFile:
-                DeleteFile(false, path);
-                break;
-            case EntryPair.FileNone:
-                DeleteFile(true, path);
-                break;
-            default:
-                throw new UnreachableException();
-        }
-    }
-
-    void CreateDirectory(bool isTargetLeft, string path)
-    {
-        EntryOperationStarted?.Invoke(Operation.CreateDirectory, isTargetLeft, path);
-        CreateDirectory(GetPath(isTargetLeft, path));
-    }
-
-    protected abstract void CreateDirectory(string path);
-
-    void DeleteEmptyDirectory(bool isTargetLeft, string path)
-    {
-        EntryOperationStarted?.Invoke(Operation.DeleteDirectory, isTargetLeft, path);
-        DeleteEmptyDirectory(GetPath(isTargetLeft, path));
-    }
-
-    protected abstract void DeleteEmptyDirectory(string path);
-
-    SyncEntryContent.File CopyFile(bool isTargetLeft, string path)
-    {
-        EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
-        var (src, dest) = GetSrcDest(isTargetLeft, path);
-        CopyFile(src, dest);
-        return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
-    }
-
-    protected abstract void CopyFile(string srcPath, string destPath);
-
-    SyncEntryContent.File OverwriteFile(bool isTargetLeft, string path)
-    {
-        EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
-        var (src, dest) = GetSrcDest(isTargetLeft, path);
-        OverwriteFile(src, dest);
-        return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
-    }
-
-    protected abstract void OverwriteFile(string srcPath, string destPath);
-
-    void DeleteFile(bool isTargetLeft, string path)
-    {
-        EntryOperationStarted?.Invoke(Operation.DeleteFile, isTargetLeft, path);
-        DeleteFile(GetPath(isTargetLeft, path));
-    }
-
-    protected abstract void DeleteFile(string path);
-
-    string GetPath(bool isTargetLeft, string path) => isTargetLeft ? Path.Combine(_leftBasePath, path) : Path.Combine(_rightBasePath, path);
-
-    (string src, string dest) GetSrcDest(bool isTargetLeft, string path)
-    {
-        var (s, d) = isTargetLeft ? (_rightBasePath, _leftBasePath) : (_leftBasePath, _rightBasePath);
-        return (Path.Combine(s, path), Path.Combine(d, path));
-    }
+    #endregion staticメソッド
     #endregion 本来の抽象クラス定義
 
     #region 派生クラス群
-    public sealed class Synchronizer(string leftBasePath, string rightBasePath) : DirectorySynchronizer(leftBasePath, rightBasePath)
+    public sealed class Synchronizer(string leftBasePath, string rightBasePath, CancellationToken cancellationToken) : DirectorySynchronizer(leftBasePath, rightBasePath, cancellationToken)
     {
         protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
         protected override void DeleteEmptyDirectory(string path)
@@ -398,7 +411,7 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
     }
 
-    public sealed class Checker(string leftBasePath, string rightBasePath) : DirectorySynchronizer(leftBasePath, rightBasePath)
+    public sealed class Checker(string leftBasePath, string rightBasePath, CancellationToken cancellationToken) : DirectorySynchronizer(leftBasePath, rightBasePath, cancellationToken)
     {
         protected override void CreateDirectory(string path) { }
         protected override void DeleteEmptyDirectory(string path) { }

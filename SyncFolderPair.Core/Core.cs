@@ -97,23 +97,25 @@ public static class Core
 
     public static void Synchronize(string pairName,
         Action<Operation, bool, string> onEntryOperationStarted,
-        Action<string> onErrorOccurred)
+        Action<string> onErrorOccurred,
+        CancellationToken cancellationToken = default)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
         var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
         syncEntries = DirectorySynchronizer.Synchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries,
-            onEntryOperationStarted, onErrorOccurred);
+            onEntryOperationStarted, onErrorOccurred, cancellationToken);
         SyncEntriesStorage.Set(pairName, syncEntries);
     }
 
     public static void CheckSynchronize(string pairName,
         Action<Operation, bool, string> onEntryOperationStarted,
-        Action<string> onErrorOccurred)
+        Action<string> onErrorOccurred,
+        CancellationToken cancellationToken = default)
     {
         var (leftDirectory, rightDirectory, ignoreEntries) = DirectoryPairStorage.Get(pairName);
         var syncEntries = SyncEntriesStorage.Get(pairName) ?? throw new Exception("Not initialized.");
         DirectorySynchronizer.CheckSynchronize(leftDirectory, rightDirectory, ignoreEntries, syncEntries,
-            onEntryOperationStarted, onErrorOccurred);
+            onEntryOperationStarted, onErrorOccurred, cancellationToken);
     }
 
     public static IEnumerable<DifferentEntryPair> EnumerateDifferentEntries(string leftDirectory, string rightDirectory)

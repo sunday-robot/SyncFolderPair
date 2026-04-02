@@ -1,6 +1,4 @@
-﻿using SyncFolderPair.Core;
-
-namespace SyncFolderPair.Commands;
+﻿namespace SyncFolderPair.Commands;
 
 /// <summary>
 /// フォルダーペアを設定ファイルに追加する

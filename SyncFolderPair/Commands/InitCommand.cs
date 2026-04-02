@@ -1,6 +1,4 @@
-﻿using SyncFolderPair.Core;
-
-namespace SyncFolderPair.Commands;
+﻿namespace SyncFolderPair.Commands;
 
 /// <summary>
 /// 指定されたフォルダペアの同期用の管理ファイルを作成する。<br/>

@@ -33,7 +33,7 @@ public class EntryPairsEnumerator(Func<string, object?> createFileInfo)
     {
         var leftNames = EnumerateEntryNames(leftDirectoryPath, ignoreEntries);
         var rightNames = EnumerateEntryNames(rightDirectoryPath, ignoreEntries);
-        foreach (var pair in PairsEnumerator2.Enumerate(leftNames, rightNames, _fileNameComparison))
+        foreach (var pair in PairsEnumerator.Enumerate(leftNames, rightNames, _fileNameComparison))
         {
             switch (pair)
             {
