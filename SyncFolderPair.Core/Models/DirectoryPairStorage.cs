@@ -105,7 +105,7 @@ public static class DirectoryPairStorage
             return [];
 
         var json = File.ReadAllText(filePath);
-        var list = JsonSerializer.Deserialize<List<DirectoryPair>>(json) ?? throw new Exception("pairs.json is invalid.");
+        var list = JsonSerializer.Deserialize<List<DirectoryPair>>(json) ?? throw new Exception($"{_fileName} is invalid.");
         return list;
     }
 }
