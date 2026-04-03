@@ -1,15 +1,14 @@
 using System.Collections.ObjectModel;
-using SyncFolderPair.Core.Types;
+using System.Windows;
 using SyncFolderPair.Gui.Services;
 
 namespace SyncFolderPair.Gui.ViewModels;
 
-public sealed class MainViewModel : ViewModelBase
+public sealed class MainViewModel : ViewModelBase, IDisposable
 {
     readonly SyncService _syncService = new();
-    CancellationTokenSource? _cts;
     string? _selectedPairName;
-    string _statusMessage = "待機中";
+    string _statusMessage = "蠕�讖滉ｸｭ";
     bool _isBusy;
 
     public ObservableCollection<string> PairNames { get; } = [];
@@ -48,82 +47,63 @@ public sealed class MainViewModel : ViewModelBase
 
     public MainViewModel()
     {
-        RefreshCommand = new RelayCommand(RefreshPairs, () => !IsBusy);
-        SyncCommand = new RelayCommand(() => _ = RunSyncAsync(previewOnly: false), CanStartSync);
-        PreviewCommand = new RelayCommand(() => _ = RunSyncAsync(previewOnly: true), CanStartSync);
-        CancelCommand = new RelayCommand(CancelSync, () => IsBusy);
+        _syncService.StateUpdated += OnCoreStateUpdated;
 
-        RefreshPairs();
+        RefreshCommand = new RelayCommand(() => _syncService.EnqueueRefresh(), () => !IsBusy);
+        SyncCommand = new RelayCommand(() => EnqueueSync(previewOnly: false), CanStartSync);
+        PreviewCommand = new RelayCommand(() => EnqueueSync(previewOnly: true), CanStartSync);
+        CancelCommand = new RelayCommand(() => _syncService.EnqueueCancel(), () => IsBusy);
+
+        _syncService.EnqueueRefresh();
     }
 
     bool CanStartSync() => !IsBusy && !string.IsNullOrWhiteSpace(SelectedPairName);
 
-    async Task RunSyncAsync(bool previewOnly)
+    void EnqueueSync(bool previewOnly)
     {
         if (SelectedPairName is null)
             return;
 
-        _cts = new CancellationTokenSource();
-        IsBusy = true;
-        Logs.Clear();
-        StatusMessage = previewOnly ? "同期プレビュー実行中..." : "同期実行中...";
-
-        try
-        {
-            await _syncService.SynchronizeAsync(
-                SelectedPairName,
-                previewOnly,
-                OnEntryOperationStarted,
-                OnErrorOccurred,
-                _cts.Token);
-
-            StatusMessage = previewOnly ? "同期プレビューが完了しました。" : "同期が完了しました。";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "処理を中止しました。";
-            Logs.Add("[Info] キャンセルされました。");
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = "エラーが発生しました。";
-            Logs.Add($"[Error] {ex.Message}");
-        }
-        finally
-        {
-            IsBusy = false;
-            _cts?.Dispose();
-            _cts = null;
-        }
+        _syncService.EnqueueSynchronize(SelectedPairName, previewOnly);
     }
 
-    void RefreshPairs()
+    void OnCoreStateUpdated(CoreStateDelta delta)
     {
-        PairNames.Clear();
-        foreach (var pairName in _syncService.GetPairNames())
-            PairNames.Add(pairName);
+        if (Application.Current.Dispatcher.CheckAccess())
+        {
+            ApplyDelta(delta);
+            return;
+        }
 
-        if (PairNames.Count > 0)
-            SelectedPairName ??= PairNames[0];
-
-        StatusMessage = $"ペア数: {PairNames.Count}";
-        Logs.Clear();
-        Logs.Add("[Info] ペア一覧を更新しました。");
+        Application.Current.Dispatcher.Invoke(() => ApplyDelta(delta));
     }
 
-    void CancelSync() => _cts?.Cancel();
-
-    void OnEntryOperationStarted(Operation operation, bool isTargetLeft, string path)
+    void ApplyDelta(CoreStateDelta delta)
     {
-        _cts?.Token.ThrowIfCancellationRequested();
-        var side = isTargetLeft ? "Left" : "Right";
-        Logs.Add($"[{operation}] {side}: {path}");
-    }
+        if (delta.ReplacePairNames is not null)
+        {
+            PairNames.Clear();
+            foreach (var pairName in delta.ReplacePairNames)
+                PairNames.Add(pairName);
 
-    void OnErrorOccurred(string message)
-    {
-        _cts?.Token.ThrowIfCancellationRequested();
-        Logs.Add($"[Warn] {message}");
+            if (PairNames.Count > 0 && string.IsNullOrWhiteSpace(SelectedPairName))
+                SelectedPairName = PairNames[0];
+        }
+
+        if (delta.ClearLogs)
+            Logs.Clear();
+
+        if (delta.AddedLogs is not null)
+        {
+            foreach (var log in delta.AddedLogs)
+                Logs.Add(log);
+        }
+
+        if (delta.StatusMessage is not null)
+            StatusMessage = delta.StatusMessage;
+
+        if (delta.IsBusy is not null)
+            IsBusy = delta.IsBusy.Value;
     }
 
     void UpdateCommands()
@@ -132,5 +112,11 @@ public sealed class MainViewModel : ViewModelBase
         SyncCommand.NotifyCanExecuteChanged();
         PreviewCommand.NotifyCanExecuteChanged();
         CancelCommand.NotifyCanExecuteChanged();
+    }
+
+    public void Dispose()
+    {
+        _syncService.StateUpdated -= OnCoreStateUpdated;
+        _syncService.Dispose();
     }
 }
