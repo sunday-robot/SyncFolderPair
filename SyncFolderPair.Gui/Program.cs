@@ -10,7 +10,7 @@ public static class Program
     public static void Main()
     {
         var app = new Application();
-        var vm = new MainViewModel();
+        using var vm = new MainViewModel();
         var window = new MainWindow(vm);
         app.Run(window);
     }
