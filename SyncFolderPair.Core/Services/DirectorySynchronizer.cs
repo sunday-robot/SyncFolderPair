@@ -64,8 +64,8 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     #region 抽象メソッド
     protected abstract void CreateDirectory(string path);
     protected abstract void DeleteEmptyDirectory(string path);
-    protected abstract void CopyFile(string srcPath, string destPath);
-    protected abstract void OverwriteFile(string srcPath, string destPath);
+    protected abstract bool CopyFile(string srcPath, string destPath);
+    protected abstract bool OverwriteFile(string srcPath, string destPath);
     protected abstract void DeleteFile(string path);
     #endregion
 
@@ -316,11 +316,16 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
         DeleteEmptyDirectory(GetPath(isTargetLeft, path));
     }
 
-    SyncEntryContent.File CopyFile(bool isTargetLeft, string path)
+    SyncEntryContent.File? CopyFile(bool isTargetLeft, string path)
     {
         EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
         var (src, dest) = GetSrcDest(isTargetLeft, path);
-        CopyFile(src, dest);
+        if (!CopyFile(src, dest))
+        {
+            // コピー元のファイルが他のプロセスで使用中でコピーできなかった
+            ErrorOccurred?.Invoke($"[Warning] Failed to copy file because the source file is being used by another process.");
+            return null; // 前回の状態、すなわちファイルが存在しなかった状態としてnullを返す。
+        }
         return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
     }
 
@@ -328,7 +333,12 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     {
         EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
         var (src, dest) = GetSrcDest(isTargetLeft, path);
-        OverwriteFile(src, dest);
+        if (!OverwriteFile(src, dest))
+        {
+            // コピー元のファイルが他のプロセスで使用中でコピーできなかった
+            ErrorOccurred?.Invoke($"[Warning] Failed to copy file because the source file is being used by another process.");
+            return new SyncEntryContent.File(File.GetLastWriteTimeUtc(dest));   // 前回の状態、すなわちコピー先のファイルの情報を返す。
+        }
         return new SyncEntryContent.File(File.GetLastWriteTimeUtc(src));
     }
 
@@ -406,8 +416,8 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
                     throw new Win32Exception(error);
             }
         }
-        protected override void CopyFile(string srcPath, string destPath) => File.Copy(srcPath, destPath, false);
-        protected override void OverwriteFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
+        protected override bool CopyFile(string srcPath, string destPath) => FileUtils.SafeCopy(srcPath, destPath);
+        protected override bool OverwriteFile(string srcPath, string destPath) => FileUtils.ReplaceFile(srcPath, destPath);
         protected override void DeleteFile(string path) => RecycleBin.MoveToRecycleBin(path);
     }
 
@@ -415,8 +425,8 @@ public abstract class DirectorySynchronizer(string leftBasePath, string rightBas
     {
         protected override void CreateDirectory(string path) { }
         protected override void DeleteEmptyDirectory(string path) { }
-        protected override void CopyFile(string srcPath, string destPath) { }
-        protected override void OverwriteFile(string srcPath, string destPath) { }
+        protected override bool CopyFile(string srcPath, string destPath) => true;
+        protected override bool OverwriteFile(string srcPath, string destPath) => true;
         protected override void DeleteFile(string path) { }
     }
     #endregion 派生クラス群

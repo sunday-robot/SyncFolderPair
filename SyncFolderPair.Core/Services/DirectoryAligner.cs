@@ -116,19 +116,21 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
     {
         EntryOperationStarted?.Invoke(Operation.CopyFile, isTargetLeft, path);
         var (src, dest) = GetSrcDest(isTargetLeft, path);
-        CopyFile(src, dest);
+        if (!CopyFile(src, dest))
+            ErrorOccurred?.Invoke($"[Warning] Failed to copy file because the source file is being used by another process: {src}");
     }
 
-    protected abstract void CopyFile(string src, string dest);
+    protected abstract bool CopyFile(string src, string dest);
 
     void OverwriteFile(bool isTargetLeft, string path)
     {
         EntryOperationStarted?.Invoke(Operation.OverwriteFile, isTargetLeft, path);
         var (src, dest) = GetSrcDest(isTargetLeft, path);
-        OverwriteFile(src, dest);
+        if (!OverwriteFile(src, dest))
+            ErrorOccurred?.Invoke($"[Warning] Failed to overwrite file because the source file is being used by another process: {src}");
     }
 
-    protected abstract void OverwriteFile(string src, string dest);
+    protected abstract bool OverwriteFile(string src, string dest);
 
     (string Src, string Dest) GetSrcDest(bool isTargetLeft, string path)
     {
@@ -141,15 +143,15 @@ public abstract class DirectoryAligner(bool forceMode, string leftBasePath, stri
     class Aligner(bool forceMode, string leftBasePath, string rightBasePath) : DirectoryAligner(forceMode, leftBasePath, rightBasePath)
     {
         protected override void CreateDirectory(string path) => Directory.CreateDirectory(path);
-        protected override void CopyFile(string src, string dest) => File.Copy(src, dest, false);
-        protected override void OverwriteFile(string src, string dest) => FileUtils.ReplaceFile(src, dest);
+        protected override bool CopyFile(string src, string dest) => FileUtils.SafeCopy(src, dest);
+        protected override bool OverwriteFile(string src, string dest) => FileUtils.ReplaceFile(src, dest);
     }
 
     class Checker(string leftBasePath, string rightBasePath) : DirectoryAligner(false, leftBasePath, rightBasePath)
     {
         protected override void CreateDirectory(string path) { }
-        protected override void CopyFile(string src, string dest) { }
-        protected override void OverwriteFile(string src, string dest) { }
+        protected override bool CopyFile(string src, string dest) => true;
+        protected override bool OverwriteFile(string src, string dest) => true;
     }
     #endregion 派生クラス群
 }

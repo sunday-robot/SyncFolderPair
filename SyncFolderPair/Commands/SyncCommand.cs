@@ -13,12 +13,12 @@ public sealed class SyncCommand : AbstractCommand
         switch (args.Length)
         {
             case 1:
-                Core.Core.Synchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
+                Core.Core.Synchronize(args[0], ProgressPrinter.Print, PrintError);
                 break;
             case 2:
                 if (args[1] != "check")
                     throw new ArgumentException("Invalid parameter.");
-                Core.Core.CheckSynchronize(args[0], ProgressPrinter.Print, Console.WriteLine);
+                Core.Core.CheckSynchronize(args[0], ProgressPrinter.Print, PrintError);
                 break;
             default:
                 throw new ArgumentException("Parameter count error.");
@@ -26,4 +26,6 @@ public sealed class SyncCommand : AbstractCommand
 
         return 0;
     }
+
+    static void PrintError(string message) => Console.WriteLine("              " + message);
 }
