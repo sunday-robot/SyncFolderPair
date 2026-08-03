@@ -5,6 +5,7 @@ namespace SyncFolderPair.Gui.Services;
 
 public sealed class SyncService : IDisposable
 {
+    #region メンバ変数
     readonly Channel<CoreRequest> _requestChannel = Channel.CreateUnbounded<CoreRequest>(new UnboundedChannelOptions
     {
         SingleReader = true,
@@ -13,6 +14,7 @@ public sealed class SyncService : IDisposable
     readonly CancellationTokenSource _shutdownCts = new();
     readonly Task _workerTask;
     CancellationTokenSource? _runningOperationCts;
+    #endregion メンバ変数
 
     public event Action<CoreStateDelta>? StateUpdated;
 
@@ -21,13 +23,34 @@ public sealed class SyncService : IDisposable
         _workerTask = Task.Run(ProcessRequestsAsync);
     }
 
+    #region publicメソッド
+    public void Dispose()
+    {
+        _requestChannel.Writer.TryComplete();
+        _shutdownCts.Cancel();
+
+        try
+        {
+            _workerTask.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore cancellation from shutdown.
+        }
+
+        _runningOperationCts?.Dispose();
+        _shutdownCts.Dispose();
+    }
+
     public void EnqueueRefresh() => _requestChannel.Writer.TryWrite(new RefreshPairsRequest());
 
     public void EnqueueSynchronize(string pairName, bool previewOnly) =>
         _requestChannel.Writer.TryWrite(new SynchronizeRequest(pairName, previewOnly));
 
     public void EnqueueCancel() => _requestChannel.Writer.TryWrite(new CancelCurrentRequest());
+    #endregion publicメソッド
 
+    #region privateメソッド
     async Task ProcessRequestsAsync()
     {
         try
@@ -138,24 +161,7 @@ public sealed class SyncService : IDisposable
     }
 
     void Publish(CoreStateDelta delta) => StateUpdated?.Invoke(delta);
-
-    public void Dispose()
-    {
-        _requestChannel.Writer.TryComplete();
-        _shutdownCts.Cancel();
-
-        try
-        {
-            _workerTask.GetAwaiter().GetResult();
-        }
-        catch (OperationCanceledException)
-        {
-            // Ignore cancellation from shutdown.
-        }
-
-        _runningOperationCts?.Dispose();
-        _shutdownCts.Dispose();
-    }
+    #endregion privateメソッド
 }
 
 abstract record CoreRequest;

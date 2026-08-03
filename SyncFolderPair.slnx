@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/ソリューション項目/">
+    <File Path="docs/flow.md" />
+    <File Path="docs/gui-startup-flow.md" />
     <File Path="README.md" />
   </Folder>
-  <Project Path="Win32/Win32Api.csproj" />
   <Project Path="SyncFolderPair.Core/SyncFolderPair.Core.csproj" Id="2ae123fb-407d-4eab-b4c0-ee83a8bda19d" />
-  <Project Path="SyncFolderPair/SyncFolderPair.csproj" />
   <Project Path="SyncFolderPair.Gui/SyncFolderPair.Gui.csproj" />
+  <Project Path="SyncFolderPair/SyncFolderPair.csproj" />
+  <Project Path="Win32/Win32Api.csproj" />
 </Solution>

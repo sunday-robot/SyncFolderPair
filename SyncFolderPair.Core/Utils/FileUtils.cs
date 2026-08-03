@@ -51,7 +51,7 @@ public static class FileUtils
             // コピー元のファイルが使用中だった場合は、falseを返す
             return false;
         }
-
+         
         // destination側のファイルをゴミ箱に移動し、一時ファイルの名前を本来の名前に変える。
         try
         {
